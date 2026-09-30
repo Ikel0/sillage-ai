@@ -1,0 +1,44 @@
+[
+  {
+    "id": "contract.orders.v3",
+    "dataset": "orders_daily",
+    "domain": "commerce",
+    "owner": "Revenue Platform",
+    "tier": "critical",
+    "sla_minutes": 45,
+    "controls": [
+      "event_id is unique",
+      "order_total is non-negative",
+      "freshness is below 45 minutes"
+    ],
+    "consumers": ["finance_daily", "merchant_kpi", "retention_features"]
+  },
+  {
+    "id": "contract.customer-events.v2",
+    "dataset": "customer_events",
+    "domain": "growth",
+    "owner": "Customer Data Platform",
+    "tier": "high",
+    "sla_minutes": 30,
+    "controls": [
+      "event_name belongs to the approved taxonomy",
+      "occurred_at is present and UTC",
+      "payload schema is compatible with v2"
+    ],
+    "consumers": ["campaign_attribution", "product_funnel"]
+  },
+  {
+    "id": "contract.inventory.v1",
+    "dataset": "inventory_snapshot",
+    "domain": "supply",
+    "owner": "Supply Operations",
+    "tier": "high",
+    "sla_minutes": 60,
+    "controls": [
+      "sku is present",
+      "warehouse_id is present",
+      "available_quantity is greater than or equal to zero"
+    ],
+    "consumers": ["stockout_alerts", "fulfillment_planning"]
+  }
+]

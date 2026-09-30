@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Sillage is an evidence-first control room for data incident triage."
+    />
+    <title>Sillage | Data incident intelligence</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">Skip to investigation workspace</a>
+
+    <div class="page-noise" aria-hidden="true"></div>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Sillage home">
+          <span class="brand-mark" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+          <span>
+            <strong>Sillage</strong>
+            <small>data incident intelligence</small>
+          </span>
+        </a>
+
+        <div class="topbar-status" aria-live="polite">
+          <span class="status-pulse" aria-hidden="true"></span>
+          <span id="healthLabel">Checking service</span>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="quiet-action" type="button" data-jump="audit">
+            Audit trail
+          </button>
+          <button class="source-action" id="syncSource" type="button">
+            <span class="source-action-icon" aria-hidden="true">↗</span>
+            Sync public signal
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="masthead" aria-labelledby="page-title">
+          <div class="masthead-copy">
+            <p class="eyebrow"><span></span> Evidence-first operating desk</p>
+            <h1 id="page-title">Bring the <em>reasoning</em> back to incident response.</h1>
+            <p class="masthead-description">
+              Sillage connects the failing signal, the data contract and the right runbook
+              before a person decides what happens next.
+            </p>
+          </div>
+          <div class="operating-principle" aria-label="Operating principle">
+            <span class="principle-number">01</span>
+            <div>
+              <strong>Propose, never execute.</strong>
+              <p>Every recommendation remains reviewable. No replay, change or notification is triggered here.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="signal-strip" aria-label="Control room overview">
+          <article class="strip-cell">
+            <span class="strip-label">Open incidents</span>
+            <strong id="activeCount">...</strong>
+            <small>in the current queue</small>
+          </article>
+          <article class="strip-cell">
+            <span class="strip-label">Operating mode</span>
+            <strong>Human gate</strong>
+            <small>no autonomous data action</small>
+          </article>
+          <article class="strip-cell evaluation-cell">
+            <span class="strip-label">Grounding checks</span>
+            <strong id="evaluationScore">Waiting</strong>
+            <small id="evaluationNote">verifying the decision path</small>
+          </article>
+          <article class="strip-cell source-cell">
+            <span class="strip-label">Public context</span>
+            <strong id="sourceStatus">Not synced</strong>
+            <small id="sourceNote">optional GitHub status signal</small>
+          </article>
+        </section>
+
+        <section class="workspace" id="workspace" aria-label="Incident investigation workspace">
+          <aside class="queue-panel panel" aria-labelledby="queue-title">
+            <div class="panel-header queue-header">
+              <div>
+                <p class="panel-kicker">Queue</p>
+                <h2 id="queue-title">What needs a decision</h2>
+              </div>
+              <span class="queue-count" id="queueCount">0</span>
+            </div>
+
+            <div class="queue-filters" aria-label="Filter incidents">
+              <button class="filter is-active" type="button" data-filter="all">All</button>
+              <button class="filter" type="button" data-filter="SEV-1">Critical</button>
+              <button class="filter" type="button" data-filter="SEV-2">Important</button>
+            </div>
+
+            <div class="incident-list" id="incidentList" aria-live="polite">
+              <p class="loading-copy">Opening the queue...</p>
+            </div>
+
+            <p class="queue-footnote">
+              Ordered by severity, then arrival time. The queue is a view, not a ticketing system.
+            </p>
+          </aside>
+
+          <section class="case-panel panel" aria-labelledby="case-title">
+            <div class="case-topline">
+              <p class="panel-kicker">Case file <span id="caseReference">Select an incident</span></p>
+              <span class="case-status" id="caseStatus">Awaiting selection</span>
+            </div>
+
+            <div id="caseContent" class="case-content" aria-live="polite">
+              <div class="empty-case">
+                <span class="empty-symbol" aria-hidden="true">+</span>
+                <h2 id="case-title">The investigation starts with a signal.</h2>
+                <p>Choose an item from the queue to inspect its contract, controls and affected consumers.</p>
+              </div>
+            </div>
+
+            <div class="case-actions" id="caseActions" hidden>
+              <div class="action-copy">
+                <strong>Build a grounded triage</strong>
+                <span>Uses the active data contract and ranked runbook evidence.</span>
+              </div>
+              <button class="primary-action" id="analyzeIncident" type="button">
+                <span>Produce triage</span>
+                <i aria-hidden="true">→</i>
+              </button>
+            </div>
+          </section>
+
+          <aside class="reasoning-panel panel" aria-labelledby="reasoning-title">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Reasoning ledger</p>
+                <h2 id="reasoning-title">Evidence before answer</h2>
+              </div>
+              <span class="ledger-state" id="ledgerState">Idle</span>
+            </div>
+
+            <div class="reasoning-intro" id="reasoningIntro">
+              <span class="evidence-glyph" aria-hidden="true"></span>
+              <p>Select an incident, then ask Sillage for a traceable triage plan.</p>
+            </div>
+
+            <div class="triage-result" id="triageResult" hidden></div>
+
+            <section class="source-card" aria-labelledby="source-title">
+              <div class="source-card-topline">
+                <span class="source-dot" aria-hidden="true"></span>
+                <p id="source-title">External context</p>
+              </div>
+              <p id="sourceCardText">No public source has been queried during this session.</p>
+              <button id="sourceDetails" class="text-action" type="button" hidden>Show source details</button>
+            </section>
+          </aside>
+        </section>
+
+        <section class="lower-deck">
+          <section class="audit-panel panel" id="audit" aria-labelledby="audit-title">
+            <div class="panel-header audit-header">
+              <div>
+                <p class="panel-kicker">Trace</p>
+                <h2 id="audit-title">Decision trail</h2>
+              </div>
+              <button class="text-action" id="refreshAudit" type="button">Refresh</button>
+            </div>
+            <div class="audit-list" id="auditList" aria-live="polite">
+              <p class="loading-copy">The audit trail is empty for now.</p>
+            </div>
+          </section>
+
+          <aside class="method-panel panel" aria-labelledby="method-title">
+            <p class="panel-kicker">Method</p>
+            <h2 id="method-title">A narrow intelligence layer for real operations.</h2>
+            <ol class="method-list">
+              <li><span>1</span> Read the incident signals and known scope.</li>
+              <li><span>2</span> Anchor the suggestion to a versioned contract.</li>
+              <li><span>3</span> Rank an operational runbook with visible evidence.</li>
+              <li><span>4</span> Keep the final action with the responsible team.</li>
+            </ol>
+            <p class="method-note">Built to make a review faster, not to hide it.</p>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>Sillage</span>
+        <p>Data incident intelligence with an evidence trail.</p>
+        <p class="footer-note">Prototype environment. Use controlled connectors before production adoption.</p>
+      </footer>
+    </div>
+
+    <dialog class="source-dialog" id="sourceDialog" aria-labelledby="sourceDialogTitle">
+      <div class="dialog-heading">
+        <div>
+          <p class="panel-kicker">Source receipt</p>
+          <h2 id="sourceDialogTitle">Public context snapshot</h2>
+        </div>
+        <button class="dialog-close" id="closeSourceDialog" type="button" aria-label="Close source details">×</button>
+      </div>
+      <pre id="sourceReceipt"></pre>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>
