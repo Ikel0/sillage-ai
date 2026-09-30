@@ -1,0 +1,47 @@
+[
+  {
+    "id": "runbook.orders-duplicate",
+    "title": "Duplicate orders after replay",
+    "contract_id": "contract.orders.v3",
+    "owner": "Revenue Platform",
+    "symptoms": ["duplicate", "replay", "event_id", "idempotency"],
+    "steps": [
+      "Freeze publication of the affected mart while keeping raw ingestion available.",
+      "Compare producer retry identifiers with the consumer idempotency ledger.",
+      "Replay only the rejected partition once the duplicate key strategy is confirmed.",
+      "Record the correction window and validate downstream reconciliation before reopening the SLA."
+    ],
+    "escalation": "Escalate to the event producer owner if a retry policy changed in the last deployment.",
+    "risk": "Double-counted revenue can affect finance and merchant KPIs."
+  },
+  {
+    "id": "runbook.events-schema",
+    "title": "Customer event schema drift",
+    "contract_id": "contract.customer-events.v2",
+    "owner": "Customer Data Platform",
+    "symptoms": ["schema", "field", "taxonomy", "payload", "version"],
+    "steps": [
+      "Quarantine only the incompatible payloads and preserve the original event envelope.",
+      "Diff the incoming payload against the published contract and identify the first incompatible field.",
+      "Agree a versioning path with the producer before widening a schema or accepting a new field.",
+      "Backfill the quarantined events only after the consumer compatibility test passes."
+    ],
+    "escalation": "Escalate to the product instrumentation owner before changing the taxonomy.",
+    "risk": "Attribution and funnel metrics can silently diverge if unknown events are coerced."
+  },
+  {
+    "id": "runbook.inventory-null-key",
+    "title": "Inventory snapshot key integrity",
+    "contract_id": "contract.inventory.v1",
+    "owner": "Supply Operations",
+    "symptoms": ["null", "sku", "warehouse", "snapshot", "key"],
+    "steps": [
+      "Stop the affected snapshot from replacing the latest trusted inventory view.",
+      "Measure the null-key rate by upstream warehouse and source extract time.",
+      "Recover the latest complete source slice instead of filling identifiers by inference.",
+      "Reconcile available quantity against the prior trusted snapshot before publication."
+    ],
+    "escalation": "Escalate to the warehouse feed owner if the extract is incomplete at source.",
+    "risk": "Bad stock keys can create false stockout alerts and incorrect fulfillment plans."
+  }
+]

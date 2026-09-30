@@ -1,0 +1,17 @@
+[
+  {
+    "incident_id": "INC-2407",
+    "expected_runbook": "runbook.orders-duplicate",
+    "expected_decision_fragment": "Contain publication"
+  },
+  {
+    "incident_id": "INC-2408",
+    "expected_runbook": "runbook.events-schema",
+    "expected_decision_fragment": "quality gate"
+  },
+  {
+    "incident_id": "INC-2409",
+    "expected_runbook": "runbook.inventory-null-key",
+    "expected_decision_fragment": "quality gate"
+  }
+]
