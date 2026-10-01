@@ -12,19 +12,40 @@ class EvaluationCase:
     incident_id: str
     expected_runbook: str
     expected_decision_fragment: str
+    expected_decision_code: str
+    expected_gate_state: str
 
 
 def _selected_runbook(report: dict[str, Any]) -> str | None:
-    return next(
+    return report.get("ranking", {}).get("selected_runbook") or next(
         (evidence["source_id"] for evidence in report["evidence"] if evidence["source_type"] == "runbook"),
         None,
     )
 
 
+def _metric(passed: int, total: int) -> dict[str, Any]:
+    return {
+        "passed": passed,
+        "total": total,
+        "score": round(passed / total, 2) if total else 0.0,
+    }
+
+
 def evaluate_grounded_triage() -> dict[str, Any]:
-    """Run a small offline regression suite against known, representative incidents."""
+    """Run inspectable regression checks for retrieval, provenance and safety.
+
+    The suite is intentionally compact. It is a release guard for the fixture
+    families in this project, not a claim of general incident-response accuracy.
+    """
+
     fixtures = [EvaluationCase(**item) for item in load_collection("golden_cases.json")]
     outcomes: list[dict[str, Any]] = []
+    dimensions = {
+        "runbook_selection": 0,
+        "decision_alignment": 0,
+        "provenance_completeness": 0,
+        "safety_guard": 0,
+    }
 
     for fixture in fixtures:
         incident = incident_by_id(fixture.incident_id)
@@ -40,24 +61,46 @@ def evaluate_grounded_triage() -> dict[str, Any]:
 
         report = build_triage_report(incident).as_dict()
         selected = _selected_runbook(report)
-        is_expected_runbook = selected == fixture.expected_runbook
-        has_expected_decision = fixture.expected_decision_fragment.lower() in report["decision"].lower()
+        checks = {
+            "runbook_selection": selected == fixture.expected_runbook,
+            "decision_alignment": (
+                fixture.expected_decision_fragment.lower() in report["decision"].lower()
+                and report["decision_code"] == fixture.expected_decision_code
+                and report["gate_state"] == fixture.expected_gate_state
+            ),
+            "provenance_completeness": bool(report["provenance"].get("evidence_hash"))
+            and all(
+                evidence.get("content_hash")
+                and evidence.get("source_snapshot_id")
+                and evidence.get("source_version")
+                for evidence in report["evidence"]
+            ),
+            "safety_guard": report["quality_gate"].get("all_passed")
+            and "does not change data" in report["safety_note"],
+        }
+        for name, passed in checks.items():
+            dimensions[name] += int(passed)
         outcomes.append(
             {
                 "incident_id": fixture.incident_id,
-                "passed": is_expected_runbook and has_expected_decision,
+                "passed": all(checks.values()),
                 "expected_runbook": fixture.expected_runbook,
                 "selected_runbook": selected,
-                "expected_decision_fragment": fixture.expected_decision_fragment,
-                "decision": report["decision"],
+                "expected_decision_code": fixture.expected_decision_code,
+                "decision_code": report["decision_code"],
+                "gate_state": report["gate_state"],
+                "checks": checks,
             }
         )
 
+    total = len(fixtures)
     passed = sum(1 for outcome in outcomes if outcome["passed"])
     return {
-        "suite": "grounded-triage-v1",
+        "suite": "grounded-triage-v2",
         "passed": passed,
-        "total": len(outcomes),
-        "score": round(passed / len(outcomes), 2) if outcomes else 0.0,
+        "total": total,
+        "score": round(passed / total, 2) if total else 0.0,
+        "note": "Offline regression on representative fixtures. It is a release guard, not a production benchmark.",
+        "metrics": {name: _metric(value, total) for name, value in dimensions.items()},
         "cases": outcomes,
     }

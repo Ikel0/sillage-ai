@@ -1,9 +1,12 @@
 [
   {
     "id": "runbook.orders-duplicate",
+    "version": "1.3.0",
     "title": "Duplicate orders after replay",
     "contract_id": "contract.orders.v3",
     "owner": "Revenue Platform",
+    "updated_at": "2026-09-19T10:00:00Z",
+    "status": "active",
     "symptoms": ["duplicate", "replay", "event_id", "idempotency"],
     "steps": [
       "Freeze publication of the affected mart while keeping raw ingestion available.",
@@ -16,9 +19,12 @@
   },
   {
     "id": "runbook.events-schema",
+    "version": "2.1.0",
     "title": "Customer event schema drift",
     "contract_id": "contract.customer-events.v2",
     "owner": "Customer Data Platform",
+    "updated_at": "2026-09-23T08:15:00Z",
+    "status": "active",
     "symptoms": ["schema", "field", "taxonomy", "payload", "version"],
     "steps": [
       "Quarantine only the incompatible payloads and preserve the original event envelope.",
@@ -31,9 +37,12 @@
   },
   {
     "id": "runbook.inventory-null-key",
+    "version": "1.4.0",
     "title": "Inventory snapshot key integrity",
     "contract_id": "contract.inventory.v1",
     "owner": "Supply Operations",
+    "updated_at": "2026-09-16T11:20:00Z",
+    "status": "active",
     "symptoms": ["null", "sku", "warehouse", "snapshot", "key"],
     "steps": [
       "Stop the affected snapshot from replacing the latest trusted inventory view.",

@@ -21,7 +21,7 @@ FastAPI API
 
 ### API layer
 
-`src/sillage/app.py` exposes the incident queue, triage workflow, audit events and service checks. It attaches a request identifier to every response and prevents API responses from being cached by browsers or proxies.
+`src/sillage/app.py` exposes the incident queue, triage workflow, operator-review receipts, audit events and service checks. It validates the local registry at startup, attaches a request identifier to every response and prevents API responses from being cached by browsers or proxies.
 
 ### Decision-support engine
 
@@ -31,7 +31,9 @@ FastAPI API
 - up to 0.20 for observable symptom overlap
 - up to 0.16 based on incident severity
 
-The deliberately simple model makes the demo reviewable. In a production setting, retrieval quality would be measured on a larger benchmark, thresholded by confidence and improved with lineage, ownership and time-window features.
+The engine requires both a matching contract and at least one matching symptom before a route can be selected. A score below the minimum routing threshold, or a missing symptom match, produces an explicit abstention with `INSUFFICIENT_EVIDENCE` rather than a plausible-looking runbook. The deliberately simple model makes the demo reviewable. In a production setting, retrieval quality would be measured on a larger benchmark, thresholded with held-out incident data and improved with lineage, ownership, recency and time-window features.
+
+Each selected report carries a provenance receipt: contract and runbook versions, timestamped source snapshots, content hashes, a deterministic evidence bundle hash and a trace id. The score is only a transparent route priority; it is not a calibrated probability of root cause.
 
 ### Narrative provider boundary
 
@@ -39,7 +41,11 @@ The deliberately simple model makes the demo reviewable. In a production setting
 
 ### Audit store
 
-`src/sillage/audit.py` stores compact JSON audit events in SQLite. The current implementation uses WAL mode and bounded event retrieval to suit a single-instance demo. A real service would use a managed, immutable audit sink and propagate identity and trace context.
+`src/sillage/audit.py` stores compact JSON audit events in SQLite. The current implementation uses WAL mode, bounded event retrieval and a local hash link between receipts to suit a single-instance demo. A real service would use a managed, immutable audit sink and propagate verified identity, trace context, retention controls and access policy.
+
+### Registry boundary
+
+`src/sillage/repository.py` treats the JSON fixtures as a small governed registry. It rejects missing owners, versions, consumer impact metadata, unknown contract references, inactive runbooks and malformed timestamped signals. That keeps the demo honest: an unavailable or malformed operating source is a readiness failure, not a reason to improvise a recommendation.
 
 ### Public source adapter
 

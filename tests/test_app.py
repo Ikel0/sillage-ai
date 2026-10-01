@@ -24,11 +24,11 @@ class ApiTests(unittest.TestCase):
         audit.DATABASE = self.original_database
         self.temporary_directory.cleanup()
 
-    def request(self, method: str, path: str) -> httpx.Response:
+    def request(self, method: str, path: str, json: object | None = None) -> httpx.Response:
         async def send() -> httpx.Response:
             transport = httpx.ASGITransport(app=app)
             async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-                return await client.request(method, path)
+                return await client.request(method, path, json=json)
 
         return asyncio.run(send())
 
@@ -60,9 +60,44 @@ class ApiTests(unittest.TestCase):
         selected = next(item for item in payload["report"]["evidence"] if item["source_type"] == "runbook")
         self.assertEqual(selected["source_id"], "runbook.orders-duplicate")
         self.assertFalse(payload["meta"]["automated_action"])
+        self.assertEqual(payload["report"]["decision_code"], "CONTAIN_AND_REVIEW")
+        self.assertTrue(payload["report"]["provenance"]["evidence_hash"])
+        self.assertTrue(payload["meta"]["trace_id"])
 
         audit_response = self.request("GET", "/api/audit")
         self.assertEqual(audit_response.json()["items"][0]["event_type"], "triage_generated")
+        self.assertEqual(audit_response.json()["items"][0]["payload"]["contract"]["version"], "3.2.0")
+        self.assertTrue(audit_response.json()["items"][0]["event_hash"])
+
+    def test_operator_review_is_validated_and_audited(self) -> None:
+        triage = self.request("POST", "/api/incidents/INC-2408/analyze").json()
+        review = self.request(
+            "POST",
+            "/api/incidents/INC-2408/reviews",
+            json={
+                "outcome": "needs_evidence",
+                "note": "Confirm the producer release payload before any backfill.",
+                "trace_id": triage["meta"]["trace_id"],
+            },
+        )
+
+        self.assertEqual(review.status_code, 200)
+        self.assertEqual(review.json()["review"]["outcome"], "needs_evidence")
+        self.assertFalse(review.json()["meta"]["automated_action"])
+        self.assertTrue(review.json()["review"]["audit_hash"])
+
+        history = self.request("GET", "/api/incidents/INC-2408/reviews")
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()["items"][0]["event_type"], "operator_review_recorded")
+
+    def test_review_rejects_an_unknown_outcome(self) -> None:
+        response = self.request(
+            "POST",
+            "/api/incidents/INC-2408/reviews",
+            json={"outcome": "execute_now"},
+        )
+
+        self.assertEqual(response.status_code, 422)
 
     def test_unknown_incident_returns_404(self) -> None:
         response = self.request("GET", "/api/incidents/INC-missing")
