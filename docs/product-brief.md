@@ -13,8 +13,10 @@ Sillage is an incident intelligence desk for data platforms. It is designed as d
 1. An operator selects an active incident.
 2. Sillage shows the incident signals beside the applicable data contract.
 3. The operator requests grounded triage.
-4. Sillage ranks the most relevant runbook and returns first actions, escalation path, impact statement and evidence identifiers.
-5. The service records that triage event in an append-only local audit trail.
+4. Sillage ranks the most relevant runbook only when the contract and symptoms support it. Otherwise it abstains and requests operator context.
+5. The result exposes first actions, escalation path, machine-readable gate state, consumer-level impact and a versioned provenance receipt.
+6. The operator records acceptance, a request for more evidence or rejection. The service never turns that review into an action.
+7. The service records both receipts in an append-only local audit trail.
 
 ## Example value
 
@@ -27,6 +29,7 @@ The point is not a polished answer. The point is a safer first decision with eno
 - Autonomous replays, corrections or notification workflows.
 - A claim that a language model has inferred root cause.
 - Hidden vector search or opaque confidence scores.
+- Treating a citation as proof without showing its version, snapshot or supporting excerpt.
 - A production IAM model represented as a static demo feature.
 
 ## Roadmap to a production service

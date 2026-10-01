@@ -8,9 +8,30 @@
     "opened_at": "2026-09-30T08:42:00Z",
     "summary": "The daily order aggregation is 4.8% above its reconciliation threshold after a producer replay.",
     "signals": [
-      {"kind": "quality", "name": "duplicate event_id rate", "value": "4.8%", "threshold": "0.1%"},
-      {"kind": "lineage", "name": "upstream change", "value": "producer retry policy deployed", "threshold": "no unreviewed change"},
-      {"kind": "consumer", "name": "affected consumers", "value": "finance_daily, merchant_kpi", "threshold": "none"}
+      {
+        "kind": "quality",
+        "name": "duplicate event_id rate",
+        "value": "4.8%",
+        "threshold": "0.1%",
+        "observed_at": "2026-09-30T08:40:00Z",
+        "source_snapshot_id": "quality.orders_daily.2026-09-30T0840Z"
+      },
+      {
+        "kind": "lineage",
+        "name": "upstream change",
+        "value": "producer retry policy deployed",
+        "threshold": "no unreviewed change",
+        "observed_at": "2026-09-30T08:35:00Z",
+        "source_snapshot_id": "deployments.producer.2026-09-30T0835Z"
+      },
+      {
+        "kind": "consumer",
+        "name": "affected consumers",
+        "value": "finance_daily, merchant_kpi",
+        "threshold": "none",
+        "observed_at": "2026-09-30T08:42:00Z",
+        "source_snapshot_id": "lineage.orders_daily.2026-09-30T0842Z"
+      }
     ]
   },
   {
@@ -22,9 +43,30 @@
     "opened_at": "2026-09-30T10:15:00Z",
     "summary": "A new mobile payload omits occurred_at for a subset of events and is rejected at the contract gate.",
     "signals": [
-      {"kind": "quality", "name": "rejected payload rate", "value": "2.1%", "threshold": "0.2%"},
-      {"kind": "contract", "name": "incompatible field", "value": "occurred_at missing", "threshold": "required"},
-      {"kind": "lineage", "name": "upstream change", "value": "mobile 8.14 rollout", "threshold": "versioned release"}
+      {
+        "kind": "quality",
+        "name": "rejected payload rate",
+        "value": "2.1%",
+        "threshold": "0.2%",
+        "observed_at": "2026-09-30T10:13:00Z",
+        "source_snapshot_id": "quality.customer_events.2026-09-30T1013Z"
+      },
+      {
+        "kind": "contract",
+        "name": "incompatible field",
+        "value": "occurred_at missing",
+        "threshold": "required",
+        "observed_at": "2026-09-30T10:14:00Z",
+        "source_snapshot_id": "schema.customer_events.2026-09-30T1014Z"
+      },
+      {
+        "kind": "lineage",
+        "name": "upstream change",
+        "value": "mobile 8.14 rollout",
+        "threshold": "versioned release",
+        "observed_at": "2026-09-30T10:09:00Z",
+        "source_snapshot_id": "deployments.mobile.2026-09-30T1009Z"
+      }
     ]
   },
   {
@@ -36,9 +78,30 @@
     "opened_at": "2026-09-30T11:03:00Z",
     "summary": "One warehouse extract contains null warehouse_id values and cannot safely replace the current snapshot.",
     "signals": [
-      {"kind": "quality", "name": "null warehouse_id rate", "value": "1.7%", "threshold": "0%"},
-      {"kind": "freshness", "name": "last trusted snapshot", "value": "46 minutes ago", "threshold": "under 60 minutes"},
-      {"kind": "consumer", "name": "affected consumers", "value": "stockout_alerts, fulfillment_planning", "threshold": "none"}
+      {
+        "kind": "quality",
+        "name": "null warehouse_id rate",
+        "value": "1.7%",
+        "threshold": "0%",
+        "observed_at": "2026-09-30T11:01:00Z",
+        "source_snapshot_id": "quality.inventory_snapshot.2026-09-30T1101Z"
+      },
+      {
+        "kind": "freshness",
+        "name": "last trusted snapshot",
+        "value": "46 minutes ago",
+        "threshold": "under 60 minutes",
+        "observed_at": "2026-09-30T11:03:00Z",
+        "source_snapshot_id": "freshness.inventory_snapshot.2026-09-30T1103Z"
+      },
+      {
+        "kind": "consumer",
+        "name": "affected consumers",
+        "value": "stockout_alerts, fulfillment_planning",
+        "threshold": "none",
+        "observed_at": "2026-09-30T11:03:00Z",
+        "source_snapshot_id": "lineage.inventory_snapshot.2026-09-30T1103Z"
+      }
     ]
   }
 ]

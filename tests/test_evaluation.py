@@ -12,3 +12,5 @@ class EvaluationSuiteTests(unittest.TestCase):
         self.assertEqual(outcome["passed"], outcome["total"])
         self.assertEqual(outcome["score"], 1.0)
         self.assertEqual(len(outcome["cases"]), 3)
+        self.assertEqual(outcome["metrics"]["provenance_completeness"]["score"], 1.0)
+        self.assertEqual(outcome["metrics"]["safety_guard"]["score"], 1.0)

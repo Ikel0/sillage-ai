@@ -42,9 +42,12 @@ For each incident, Sillage:
 
 1. Resolves the referenced contract.
 2. Scores available runbooks using contract match, symptom overlap and severity.
-3. Produces an evidence pack containing contract, runbook and raw signals.
-4. Produces a short deterministic narrative from that evidence pack.
-5. Writes a compact audit event with evidence identifiers and `automated_action: false`.
+3. Abstains if contract affinity and symptoms do not jointly support an active runbook.
+4. Produces an evidence pack containing contract, runbook when grounded, raw signals, source snapshots and content hashes.
+5. Produces a machine-readable decision code, gate state and downstream consumer impact.
+6. Produces a short deterministic narrative from that evidence pack.
+7. Writes a compact audit event with trace id, evidence hash and `automated_action: false`.
+8. Lets an operator record whether the proposal was accepted, needs more evidence or was rejected.
 
 The score is intentionally simple and inspectable. It is not presented as a machine-learning model or a universal root-cause detector.
 
@@ -54,9 +57,11 @@ The prototype includes a small golden suite with one expected retrieval outcome 
 
 - the expected runbook is selected;
 - the expected safety posture appears in the recommended decision;
-- the result is generated without an external model or API key.
+- every cited record has version or snapshot provenance;
+- the result is generated without an external model or API key;
+- the no-action safety guard remains present.
 
-This benchmark is limited by design. It protects against accidental regressions in the scenarios represented by the product but does not prove general performance. A production evaluation would need a versioned incident corpus, domain-owner labels, retrieval recall metrics, abstention tests, citation-validity checks and human-on-call feedback.
+This benchmark is limited by design. It protects against accidental regressions in the scenarios represented by the product but does not prove general performance. A production evaluation would need a versioned incident corpus, domain-owner labels, retrieval recall metrics, abstention tests, citation-validity checks and human-on-call feedback. It would also need authority and freshness evaluation, because a relevant but superseded runbook is not safe operating knowledge.
 
 ## System boundaries
 

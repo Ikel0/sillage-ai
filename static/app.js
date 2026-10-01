@@ -5,6 +5,7 @@
     incidents: [],
     filter: "all",
     selectedId: null,
+    lastReport: null,
     sourceSnapshot: null,
     toastTimer: null,
   };
@@ -75,6 +76,46 @@
       if (Array.isArray(payload?.[key])) return payload[key];
     }
     return [];
+  }
+
+  function listFrom(value) {
+    if (Array.isArray(value)) return value;
+    if (value === undefined || value === null || value === "") return [];
+    return [value];
+  }
+
+  function textFrom(value, fallback = "Not recorded") {
+    if (typeof value === "string" || typeof value === "number") return String(value);
+    if (!value || typeof value !== "object") return fallback;
+    return String(
+      value.label ||
+        value.title ||
+        value.name ||
+        value.dataset ||
+        value.scope ||
+        value.source_id ||
+        value.runbook_id ||
+        value.id ||
+        value.value ||
+        value.description ||
+        fallback
+    );
+  }
+
+  function codeLabel(value, fallback = "Not classified") {
+    if (!value) return fallback;
+    return String(value).replaceAll("_", " ").replaceAll("-", " ");
+  }
+
+  function qualityCheckLabel(check) {
+    if (!check || typeof check !== "object") return textFrom(check);
+    const state = check.status ? ` (${codeLabel(check.status)})` : "";
+    const detail = check.detail ? `: ${check.detail}` : "";
+    return `${check.label || check.id || "Check"}${state}${detail}`;
+  }
+
+  function stateClass(value) {
+    return String(value || "unknown").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
   }
 
   async function api(path, options = {}) {
@@ -207,7 +248,16 @@
         <section class="content-block">
           <h3>Known consumers</h3>
           <ul class="consumer-list">
-            ${consumers.map((consumer) => `<li>${escapeHtml(consumer)}</li>`).join("") || '<li>None recorded</li>'}
+            ${
+              consumers
+                .map((consumer) => {
+                  if (consumer && typeof consumer === "object") {
+                    return `<li title="${escapeHtml(consumer.reason || "")}">${escapeHtml(consumer.id || "consumer")} <span>${escapeHtml(consumer.tier || "")}</span></li>`;
+                  }
+                  return `<li>${escapeHtml(consumer)}</li>`;
+                })
+                .join("") || '<li>None recorded</li>'
+            }
           </ul>
         </section>
       </div>`;
@@ -217,6 +267,50 @@
     const evidence = Array.isArray(report.evidence) ? report.evidence : [];
     const firstActions = Array.isArray(report.first_actions) ? report.first_actions : [];
     const confidence = Math.round(Number(report.confidence || 0) * 100);
+    const impacts = listFrom(report.impact);
+    const qualityGate = report.quality_gate && typeof report.quality_gate === "object" ? report.quality_gate : {};
+    const gateState = report.gate_state || qualityGate.state || qualityGate.status || "not recorded";
+    const gateReason =
+      qualityGate.reason ||
+      qualityGate.description ||
+      qualityGate.note ||
+      (qualityGate.status
+        ? qualityGate.all_passed
+          ? "All evidence checks passed. An operator must still decide what happens next."
+          : "One or more evidence checks need operator context before the plan can be trusted."
+        : "No quality gate explanation was returned.");
+    const qualityChecks = listFrom(qualityGate.checks || qualityGate.controls || qualityGate.evidence);
+    const provenancePayload = report.provenance;
+    const provenance = Array.isArray(provenancePayload)
+      ? provenancePayload
+      : listFrom(provenancePayload?.items || provenancePayload?.sources || provenancePayload?.citations).length
+        ? listFrom(provenancePayload?.items || provenancePayload?.sources || provenancePayload?.citations)
+        : [
+            provenancePayload?.contract_id
+              ? {
+                  title: "Contract anchor",
+                  detail: `${provenancePayload.contract_id} ${provenancePayload.contract_version || ""}`.trim(),
+                }
+              : null,
+            provenancePayload?.runbook_id
+              ? {
+                  title: "Runbook anchor",
+                  detail: `${provenancePayload.runbook_id} ${provenancePayload.runbook_version || ""}`.trim(),
+                }
+              : null,
+            provenancePayload?.source_snapshot_id
+              ? { title: "Evidence bundle", detail: provenancePayload.source_snapshot_id }
+              : null,
+            provenancePayload?.evidence_hash
+              ? { title: "Evidence hash", detail: provenancePayload.evidence_hash }
+              : null,
+          ].filter(Boolean);
+    const rankingPayload = report.ranking;
+    const ranking = Array.isArray(rankingPayload)
+      ? rankingPayload
+      : listFrom(rankingPayload?.items || rankingPayload?.candidates || rankingPayload?.ranked);
+    const traceLabel = provenancePayload?.trace_id ? `Trace ${provenancePayload.trace_id}` : "";
+    const decisionCode = report.decision_code || "not classified";
 
     elements.reasoningIntro.hidden = true;
     elements.triageResult.hidden = false;
@@ -227,6 +321,42 @@
         <span>Suggested decision</span>
         <strong>${escapeHtml(report.decision || "No decision was returned.")}</strong>
         <div class="confidence"><span>Evidence confidence</span><b>${confidence}%</b></div>
+      </section>
+      <section class="decision-frame">
+        <div class="decision-frame-heading">
+          <div>
+            <h3>Decision checkpoint</h3>
+            <p>This is a recommendation, not an operation.</p>
+          </div>
+          <span class="gate-badge gate-${escapeHtml(stateClass(gateState))}">${escapeHtml(codeLabel(gateState))}</span>
+        </div>
+        <dl class="decision-facts">
+          <div><dt>Decision code</dt><dd>${escapeHtml(codeLabel(decisionCode))}</dd></div>
+          <div><dt>Gate state</dt><dd>${escapeHtml(codeLabel(gateState))}</dd></div>
+        </dl>
+        <div class="impact-block">
+          <span>Expected impact</span>
+          <ul class="impact-list">
+            ${
+              impacts
+                .map((impact) => {
+                  if (impact && typeof impact === "object") {
+                    return `<li><strong>${escapeHtml(impact.consumer || "consumer")} · ${escapeHtml(impact.tier || "tier not recorded")}</strong><span>${escapeHtml(impact.reason || impact.recommended_action || "Impact details were not returned.")}</span></li>`;
+                  }
+                  return `<li>${escapeHtml(textFrom(impact))}</li>`;
+                })
+                .join("") || "<li>No impact scope was returned.</li>"
+            }
+          </ul>
+        </div>
+        <div class="quality-gate">
+          <span class="quality-gate-mark" aria-hidden="true">✓</span>
+          <div>
+            <strong>Quality gate</strong>
+            <p>${escapeHtml(gateReason)}</p>
+            ${qualityChecks.length ? `<ul>${qualityChecks.map((check) => `<li>${escapeHtml(qualityCheckLabel(check))}</li>`).join("")}</ul>` : ""}
+          </div>
+        </div>
       </section>
       <section class="triage-section">
         <h3>Working hypothesis</h3>
@@ -256,6 +386,39 @@
         </ul>
       </section>
       ${
+        provenance.length || ranking.length
+          ? `<section class="triage-section reasoning-details">
+              <h3>Decision provenance</h3>
+              ${traceLabel ? `<p class="trace-id">${escapeHtml(traceLabel)}</p>` : ""}
+              ${
+                provenance.length
+                  ? `<ul class="provenance-list">
+                      ${provenance
+                        .map((item) => {
+                          const detail = item && typeof item === "object" ? item.detail || item.excerpt || item.source_type || item.reason : "";
+                          return `<li><strong>${escapeHtml(textFrom(item))}</strong>${detail ? `<span>${escapeHtml(detail)}</span>` : ""}</li>`;
+                        })
+                        .join("")}
+                    </ul>`
+                  : ""
+              }
+              ${
+                ranking.length
+                  ? `<div class="ranking-block"><span>Candidate ranking</span><ol>
+                      ${ranking
+                        .map((item, index) => {
+                          const label = textFrom(item, `candidate ${index + 1}`);
+                          const score = item && typeof item === "object" && item.score !== undefined ? ` ${Math.round(Number(item.score) * 100)}%` : "";
+                          return `<li><b>0${index + 1}</b><span>${escapeHtml(label)}</span><em>${escapeHtml(score)}</em></li>`;
+                        })
+                        .join("")}
+                    </ol></div>`
+                  : ""
+              }
+            </section>`
+          : ""
+      }
+      ${
         narrative?.text
           ? `<section class="triage-section narrative-section">
               <h3>Narrative trace</h3>
@@ -264,6 +427,23 @@
             </section>`
           : ""
       }
+      <section class="review-box" aria-labelledby="reviewTitle">
+        <div class="review-heading">
+          <div>
+            <h3 id="reviewTitle">Human review required</h3>
+            <p>Record the operator decision. Sillage never applies the proposed remediation.</p>
+          </div>
+          <span>Manual gate</span>
+        </div>
+        <label class="review-note-label" for="reviewNote">Optional review note</label>
+        <textarea id="reviewNote" class="review-note" rows="3" maxlength="420" placeholder="What did you verify, challenge or hand off?"></textarea>
+        <div class="review-actions">
+          <button type="button" class="review-action review-accept" data-review-outcome="accepted">Accept triage</button>
+          <button type="button" class="review-action review-evidence" data-review-outcome="needs_evidence">Need more evidence</button>
+          <button type="button" class="review-action review-reject" data-review-outcome="rejected">Reject proposal</button>
+        </div>
+        <p class="review-feedback" id="reviewFeedback" aria-live="polite"></p>
+      </section>
       <p class="safety-note">${escapeHtml(report.safety_note || "This suggestion is advisory. A responsible team member must approve and execute any action.")}</p>`;
   }
 
@@ -273,6 +453,7 @@
     const payload = event.payload || {};
     if (payload.message) return payload.message;
     if (payload.status) return `${type}${id}: ${payload.status}`;
+    if (payload.outcome) return `${type}${id}: ${codeLabel(payload.outcome)}`;
     return `${type}${id}`;
   }
 
@@ -307,6 +488,7 @@
     state.selectedId = id;
     renderQueue();
     if (!preserveTriage) {
+      state.lastReport = null;
       elements.reasoningIntro.hidden = false;
       elements.triageResult.hidden = true;
       elements.ledgerState.textContent = "Ready";
@@ -335,7 +517,8 @@
 
     try {
       const response = await api(`/api/incidents/${encodeURIComponent(incident.id)}/analyze`, { method: "POST" });
-      renderTriage(response.report ?? response, response.narrative ?? null);
+      state.lastReport = response.report ?? response;
+      renderTriage(state.lastReport, response.narrative ?? null);
       await loadAudit();
       showToast("Grounded triage prepared. Review the evidence ledger before acting.");
     } catch (error) {
@@ -345,6 +528,51 @@
     } finally {
       elements.analyze.disabled = false;
       elements.analyze.querySelector("span").textContent = "Produce triage";
+    }
+  }
+
+  async function submitReview(outcome, trigger) {
+    const incident = selectedIncident();
+    if (!incident) return;
+
+    const note = document.getElementById("reviewNote")?.value.trim();
+    const feedback = document.getElementById("reviewFeedback");
+    const buttons = [...elements.triageResult.querySelectorAll("[data-review-outcome]")];
+    buttons.forEach((button) => (button.disabled = true));
+    if (feedback) feedback.textContent = "Recording human review...";
+
+    try {
+      const payload = { outcome };
+      if (note) payload.note = note;
+      const traceId = state.lastReport?.provenance?.trace_id;
+      if (traceId) payload.trace_id = traceId;
+      const response = await api(`/api/incidents/${encodeURIComponent(incident.id)}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const review = response.review ?? response;
+      const recordedOutcome = codeLabel(review.outcome || outcome);
+      const recordedAt = review.recorded_at || review.created_at || review.occurred_at;
+      if (feedback) {
+        feedback.classList.remove("is-error");
+        feedback.classList.add("is-recorded");
+        const receipt = review.review_id ? ` Receipt ${review.review_id}.` : " Review receipt created.";
+        const recordedNote = review.note ? ` Note: ${review.note}` : "";
+        feedback.textContent = `Review recorded: ${recordedOutcome}${recordedAt ? ` at ${formatDate(recordedAt)}` : ""}.${receipt}${recordedNote}`;
+      }
+      trigger.classList.add("is-chosen");
+      await loadAudit();
+      showToast("Human review recorded in the decision trail.");
+    } catch (error) {
+      if (feedback) {
+        feedback.classList.remove("is-recorded");
+        feedback.classList.add("is-error");
+        feedback.textContent = `Review could not be recorded: ${error.message}`;
+      }
+      showToast(`Review could not be recorded: ${error.message}`, true);
+    } finally {
+      buttons.forEach((button) => (button.disabled = false));
     }
   }
 
@@ -430,6 +658,10 @@
     });
 
     elements.analyze.addEventListener("click", analyzeSelectedIncident);
+    elements.triageResult.addEventListener("click", (event) => {
+      const trigger = event.target.closest("[data-review-outcome]");
+      if (trigger) submitReview(trigger.dataset.reviewOutcome, trigger);
+    });
     elements.refreshAudit.addEventListener("click", loadAudit);
     elements.syncSource.addEventListener("click", syncPublicSource);
     elements.sourceDetails.addEventListener("click", () => elements.sourceDialog.showModal());

@@ -2,16 +2,22 @@
   {
     "incident_id": "INC-2407",
     "expected_runbook": "runbook.orders-duplicate",
-    "expected_decision_fragment": "Contain publication"
+    "expected_decision_fragment": "Contain publication",
+    "expected_decision_code": "CONTAIN_AND_REVIEW",
+    "expected_gate_state": "blocked"
   },
   {
     "incident_id": "INC-2408",
     "expected_runbook": "runbook.events-schema",
-    "expected_decision_fragment": "quality gate"
+    "expected_decision_fragment": "quality gate",
+    "expected_decision_code": "HOLD_FOR_REVIEW",
+    "expected_gate_state": "review_required"
   },
   {
     "incident_id": "INC-2409",
     "expected_runbook": "runbook.inventory-null-key",
-    "expected_decision_fragment": "quality gate"
+    "expected_decision_fragment": "quality gate",
+    "expected_decision_code": "HOLD_FOR_REVIEW",
+    "expected_gate_state": "review_required"
   }
 ]
