@@ -39,9 +39,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Sillage AI",
-    summary="Evidence-first decision support for data incidents.",
-    version="0.2.1",
+    title="Sillage",
+    summary="Triage d'incidents data fondé sur des preuves, sans action automatique.",
+    version="0.3.0",
     docs_url="/docs",
     redoc_url=None,
     lifespan=lifespan,

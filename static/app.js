@@ -6,41 +6,63 @@
     filter: "all",
     selectedId: null,
     lastReport: null,
-    sourceSnapshot: null,
     toastTimer: null,
   };
 
+  const $ = (id) => document.getElementById(id);
   const elements = {
-    activeCount: document.getElementById("activeCount"),
-    auditList: document.getElementById("auditList"),
-    analyze: document.getElementById("analyzeIncident"),
-    caseActions: document.getElementById("caseActions"),
-    caseContent: document.getElementById("caseContent"),
-    caseReference: document.getElementById("caseReference"),
-    caseStatus: document.getElementById("caseStatus"),
-    closeSourceDialog: document.getElementById("closeSourceDialog"),
-    evaluationNote: document.getElementById("evaluationNote"),
-    evaluationScore: document.getElementById("evaluationScore"),
-    healthLabel: document.getElementById("healthLabel"),
+    analyze: $("analyzeIncident"),
+    auditList: $("auditList"),
+    caseActions: $("caseActions"),
+    caseContent: $("caseContent"),
+    caseReference: $("caseReference"),
+    caseStatus: $("caseStatus"),
+    closeSourceDialog: $("closeSourceDialog"),
+    evaluationCount: $("evaluationCount"),
+    healthLabel: $("healthLabel"),
     healthStatus: document.querySelector(".topbar-status"),
-    incidentList: document.getElementById("incidentList"),
-    ledgerState: document.getElementById("ledgerState"),
-    queueCount: document.getElementById("queueCount"),
-    refreshAudit: document.getElementById("refreshAudit"),
-    reasoningIntro: document.getElementById("reasoningIntro"),
-    sourceCard: document.querySelector(".source-card"),
-    sourceCardText: document.getElementById("sourceCardText"),
-    sourceDetails: document.getElementById("sourceDetails"),
-    sourceDialog: document.getElementById("sourceDialog"),
-    sourceNote: document.getElementById("sourceNote"),
-    sourceReceipt: document.getElementById("sourceReceipt"),
-    sourceStatus: document.getElementById("sourceStatus"),
-    syncSource: document.getElementById("syncSource"),
-    toast: document.getElementById("toast"),
-    triageResult: document.getElementById("triageResult"),
+    incidentList: $("incidentList"),
+    openCount: $("openCount"),
+    queueCount: $("queueCount"),
+    refreshAudit: $("refreshAudit"),
+    sourceCardText: $("sourceCardText"),
+    sourceCount: $("sourceCount"),
+    sourceDetails: $("sourceDetails"),
+    sourceDialog: $("sourceDialog"),
+    sourceReceipt: $("sourceReceipt"),
+    syncSource: $("syncSource"),
+    toast: $("toast"),
+    triageIntro: $("triageIntro"),
+    triageResult: $("triageResult"),
+    triageState: $("triageState"),
   };
 
   const severityOrder = { "SEV-1": 1, "SEV-2": 2, "SEV-3": 3 };
+  const closedStatuses = new Set(["resolved", "closed"]);
+
+  const labels = {
+    status: { investigating: "en investigation", triage: "en triage", open: "ouvert", resolved: "résolu", closed: "clos" },
+    tier: { critical: "critique", high: "élevé", medium: "moyen", low: "faible" },
+    kind: { quality: "qualité", lineage: "lignage", consumer: "consommateurs", contract: "contrat", freshness: "fraîcheur" },
+    gate: { blocked: "publication bloquée", review_required: "revue requise" },
+    sourceType: { data_contract: "contrat", runbook: "runbook", signal: "signal" },
+    check: { pass: "OK", needs_review: "À revoir" },
+    event: {
+      triage_generated: "Triage produit",
+      operator_review_recorded: "Revue enregistrée",
+      public_source_synced: "Statut GitHub lu",
+    },
+    outcome: { accepted: "triage accepté", needs_evidence: "éléments demandés", rejected: "proposition rejetée" },
+    indicator: {
+      none: "aucune perturbation signalée",
+      minor: "perturbation mineure",
+      major: "perturbation majeure",
+      critical: "panne critique",
+      unavailable: "source injoignable",
+    },
+  };
+
+  const label = (group, value) => labels[group]?.[value] ?? String(value ?? "").replaceAll("_", " ");
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -52,85 +74,33 @@
   }
 
   function formatDate(value) {
-    if (!value) return "time not recorded";
+    if (!value) return "heure non enregistrée";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat("en", {
-      day: "2-digit",
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "numeric",
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
-      hour12: false,
       timeZone: "UTC",
-      timeZoneName: "short",
-    }).format(date);
+    }).format(date) + " UTC";
   }
 
-  function sentenceCase(value) {
-    return String(value ?? "").replaceAll("_", " ");
-  }
+  const formatScore = (value) =>
+    Number(value).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  function collectionFrom(payload, keys) {
-    if (Array.isArray(payload)) return payload;
-    for (const key of keys) {
-      if (Array.isArray(payload?.[key])) return payload[key];
-    }
-    return [];
-  }
-
-  function listFrom(value) {
-    if (Array.isArray(value)) return value;
-    if (value === undefined || value === null || value === "") return [];
-    return [value];
-  }
-
-  function textFrom(value, fallback = "Not recorded") {
-    if (typeof value === "string" || typeof value === "number") return String(value);
-    if (!value || typeof value !== "object") return fallback;
-    return String(
-      value.label ||
-        value.title ||
-        value.name ||
-        value.dataset ||
-        value.scope ||
-        value.source_id ||
-        value.runbook_id ||
-        value.id ||
-        value.value ||
-        value.description ||
-        fallback
-    );
-  }
-
-  function codeLabel(value, fallback = "Not classified") {
-    if (!value) return fallback;
-    return String(value).replaceAll("_", " ").replaceAll("-", " ");
-  }
-
-  function qualityCheckLabel(check) {
-    if (!check || typeof check !== "object") return textFrom(check);
-    const state = check.status ? ` (${codeLabel(check.status)})` : "";
-    const detail = check.detail ? `: ${check.detail}` : "";
-    return `${check.label || check.id || "Check"}${state}${detail}`;
-  }
-
-  function stateClass(value) {
-    return String(value || "unknown").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
-  }
+  const plural = (count, singular, pluralForm) => `${count} ${count > 1 ? pluralForm : singular}`;
 
   async function api(path, options = {}) {
     const response = await fetch(path, {
-      headers: { Accept: "application/json", ...(options.headers || {}) },
       ...options,
+      headers: { Accept: "application/json", ...(options.headers || {}) },
     });
     const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("application/json")
-      ? await response.json()
-      : await response.text();
-
+    const payload = contentType.includes("application/json") ? await response.json() : await response.text();
     if (!response.ok) {
       const detail = typeof payload === "object" ? payload.detail : payload;
-      throw new Error(detail || `Request failed with ${response.status}`);
+      throw new Error(typeof detail === "string" && detail ? detail : `erreur HTTP ${response.status}`);
     }
     return payload;
   }
@@ -140,14 +110,15 @@
     elements.toast.textContent = message;
     elements.toast.classList.toggle("is-error", isError);
     elements.toast.classList.add("is-visible");
-    state.toastTimer = window.setTimeout(() => {
-      elements.toast.classList.remove("is-visible");
-    }, 4300);
+    state.toastTimer = window.setTimeout(() => elements.toast.classList.remove("is-visible"), 4300);
   }
 
-  function selectedIncident() {
-    return state.incidents.find((incident) => incident.id === state.selectedId);
+  function setTriageState(text, modifier = "") {
+    elements.triageState.textContent = text;
+    elements.triageState.className = `triage-state${modifier ? ` ${modifier}` : ""}`;
   }
+
+  const selectedIncident = () => state.incidents.find((incident) => incident.id === state.selectedId);
 
   function sortIncidents(incidents) {
     return [...incidents].sort((a, b) => {
@@ -158,309 +129,265 @@
   }
 
   function renderQueue() {
-    const visible = sortIncidents(state.incidents).filter((incident) => {
-      return state.filter === "all" || incident.severity === state.filter;
-    });
+    const visible = state.incidents.filter((incident) => state.filter === "all" || incident.severity === state.filter);
+    const open = state.incidents.filter((incident) => !closedStatuses.has(incident.status)).length;
 
-    elements.activeCount.textContent = state.incidents.length.toString().padStart(2, "0");
+    elements.openCount.textContent = plural(open, "incident ouvert", "incidents ouverts");
     elements.queueCount.textContent = visible.length;
 
     if (!visible.length) {
-      elements.incidentList.innerHTML = '<p class="empty-list">No incident matches this view.</p>';
+      elements.incidentList.innerHTML = '<p class="empty-list">Aucun incident de cette sévérité dans la file.</p>';
       return;
     }
 
     elements.incidentList.innerHTML = visible
       .map((incident) => {
-        const selected = incident.id === state.selectedId ? " is-selected" : "";
-        const severity = String(incident.severity || "SEV-3").toLowerCase();
+        const selected = incident.id === state.selectedId;
         return `
-          <button class="incident-card${selected}" type="button" data-incident-id="${escapeHtml(incident.id)}" aria-pressed="${incident.id === state.selectedId}">
+          <button class="incident-card${selected ? " is-selected" : ""}" type="button" data-incident-id="${escapeHtml(incident.id)}" aria-pressed="${selected}">
             <span class="incident-meta">
               <span class="incident-id">${escapeHtml(incident.id)}</span>
-              <span class="severity ${severity}">${escapeHtml(incident.severity)}</span>
+              <span class="severity ${escapeHtml(String(incident.severity).toLowerCase())}">${escapeHtml(incident.severity)}</span>
             </span>
             <strong>${escapeHtml(incident.title)}</strong>
-            <small>${escapeHtml(sentenceCase(incident.status))} · ${escapeHtml(formatDate(incident.opened_at))}</small>
+            <small>${escapeHtml(label("status", incident.status))} · ${escapeHtml(formatDate(incident.opened_at))}</small>
           </button>`;
       })
       .join("");
   }
 
-  function renderCase(detail) {
-    const incident = detail?.incident || detail || selectedIncident();
-    const contract = detail?.contract || incident?.contract || {};
-
-    if (!incident?.id) return;
-
+  function renderCase({ incident, contract }) {
     elements.caseReference.textContent = incident.id;
-    elements.caseStatus.textContent = sentenceCase(incident.status || "open");
-    elements.caseStatus.className = `case-status status-${String(incident.status || "open").toLowerCase()}`;
+    elements.caseStatus.textContent = label("status", incident.status);
     elements.caseActions.hidden = false;
 
-    const signals = Array.isArray(incident.signals) ? incident.signals : [];
-    const controls = Array.isArray(contract.controls) ? contract.controls : [];
-    const consumers = Array.isArray(contract.consumers) ? contract.consumers : [];
+    const signals = incident.signals || [];
+    const controls = contract.controls || [];
+    const consumers = contract.consumers || [];
 
     elements.caseContent.innerHTML = `
       <div class="case-heading">
-        <p class="case-time">Opened ${escapeHtml(formatDate(incident.opened_at))} · ${escapeHtml(incident.severity || "severity unknown")}</p>
+        <p class="case-time">Ouvert le ${escapeHtml(formatDate(incident.opened_at))} · <span class="severity ${escapeHtml(incident.severity.toLowerCase())}">${escapeHtml(incident.severity)}</span></p>
         <h2 id="case-title">${escapeHtml(incident.title)}</h2>
-        <p class="case-summary">${escapeHtml(incident.summary || "No incident summary is available.")}</p>
+        <p class="case-summary">${escapeHtml(incident.summary)}</p>
       </div>
       <div class="case-grid">
-        <section class="content-block">
-          <h3>Observed signals</h3>
-          <ul class="signal-list">
-            ${signals
-              .map(
-                (signal) => `
-                  <li class="signal-row">
-                    <span class="signal-kind kind-${escapeHtml(signal.kind || "quality")}" aria-hidden="true"></span>
-                    <span>
-                      <strong>${escapeHtml(signal.name)}</strong>
-                      <small>Expected: ${escapeHtml(signal.threshold)}</small>
-                    </span>
-                    <span class="signal-value">${escapeHtml(signal.value)}</span>
-                  </li>`
-              )
-              .join("") || '<li class="empty-list">No signals were attached to this incident.</li>'}
-          </ul>
+        <section class="content-block signals-block">
+          <h3>Signaux observés</h3>
+          ${
+            signals.length
+              ? `<table class="signal-table">
+                  <thead><tr><th scope="col">Signal</th><th scope="col">Observé</th><th scope="col">Attendu</th></tr></thead>
+                  <tbody>
+                    ${signals
+                      .map(
+                        (signal) => `
+                        <tr>
+                          <th scope="row">${escapeHtml(signal.name)}<small>${escapeHtml(label("kind", signal.kind))}</small></th>
+                          <td class="signal-value" data-label="Observé">${escapeHtml(signal.value)}</td>
+                          <td data-label="Attendu">${escapeHtml(signal.threshold)}</td>
+                        </tr>`
+                      )
+                      .join("")}
+                  </tbody>
+                </table>`
+              : '<p class="empty-list">Aucun signal rattaché à cet incident.</p>'
+          }
         </section>
         <section class="content-block">
-          <h3>Contract anchor</h3>
+          <h3>Contrat de données</h3>
           <div class="contract-card">
-            <span class="contract-id">${escapeHtml(contract.id || incident.contract_id || "contract not loaded")}</span>
-            <h4>${escapeHtml(contract.dataset || "Data contract")}</h4>
-            <p>${escapeHtml(contract.domain || "domain not recorded")}</p>
-            <div class="contract-meta">
-              <div><span>Owner</span><strong>${escapeHtml(contract.owner || "not assigned")}</strong></div>
-              <div><span>SLA</span><strong>${escapeHtml(contract.sla_minutes ? `${contract.sla_minutes} min` : "not set")}</strong></div>
-            </div>
+            <span class="contract-id">${escapeHtml(contract.id)} · v${escapeHtml(contract.version)}</span>
+            <h4>${escapeHtml(contract.dataset)}</h4>
+            <p>Domaine ${escapeHtml(contract.domain)} · niveau ${escapeHtml(label("tier", contract.tier))}</p>
+            <dl class="contract-meta">
+              <div><dt>Responsable</dt><dd>${escapeHtml(contract.owner)}</dd></div>
+              <div><dt>SLA</dt><dd>${escapeHtml(contract.sla_minutes)} min</dd></div>
+            </dl>
           </div>
         </section>
         <section class="content-block">
-          <h3>Contract controls</h3>
+          <h3>Contrôles du contrat</h3>
           <ul class="control-list">
-            ${controls.map((control) => `<li>${escapeHtml(control)}</li>`).join("") || '<li>No controls recorded.</li>'}
+            ${controls.map((control) => `<li>${escapeHtml(control)}</li>`).join("") || "<li>Aucun contrôle déclaré.</li>"}
           </ul>
         </section>
         <section class="content-block">
-          <h3>Known consumers</h3>
+          <h3>Consommateurs connus</h3>
           <ul class="consumer-list">
             ${
               consumers
-                .map((consumer) => {
-                  if (consumer && typeof consumer === "object") {
-                    return `<li title="${escapeHtml(consumer.reason || "")}">${escapeHtml(consumer.id || "consumer")} <span>${escapeHtml(consumer.tier || "")}</span></li>`;
-                  }
-                  return `<li>${escapeHtml(consumer)}</li>`;
-                })
-                .join("") || '<li>None recorded</li>'
+                .map(
+                  (consumer) =>
+                    `<li><code>${escapeHtml(consumer.id)}</code> <span>· ${escapeHtml(label("tier", consumer.tier))}</span><br /><span>${escapeHtml(consumer.reason)}</span></li>`
+                )
+                .join("") || "<li>Aucun consommateur déclaré.</li>"
             }
           </ul>
         </section>
       </div>`;
   }
 
-  function renderTriage(report, narrative = null) {
-    const evidence = Array.isArray(report.evidence) ? report.evidence : [];
-    const firstActions = Array.isArray(report.first_actions) ? report.first_actions : [];
-    const confidence = Math.round(Number(report.confidence || 0) * 100);
-    const impacts = listFrom(report.impact);
-    const qualityGate = report.quality_gate && typeof report.quality_gate === "object" ? report.quality_gate : {};
-    const gateState = report.gate_state || qualityGate.state || qualityGate.status || "not recorded";
-    const gateReason =
-      qualityGate.reason ||
-      qualityGate.description ||
-      qualityGate.note ||
-      (qualityGate.status
-        ? qualityGate.all_passed
-          ? "All evidence checks passed. An operator must still decide what happens next."
-          : "One or more evidence checks need operator context before the plan can be trusted."
-        : "No quality gate explanation was returned.");
-    const qualityChecks = listFrom(qualityGate.checks || qualityGate.controls || qualityGate.evidence);
-    const provenancePayload = report.provenance;
-    const provenance = Array.isArray(provenancePayload)
-      ? provenancePayload
-      : listFrom(provenancePayload?.items || provenancePayload?.sources || provenancePayload?.citations).length
-        ? listFrom(provenancePayload?.items || provenancePayload?.sources || provenancePayload?.citations)
-        : [
-            provenancePayload?.contract_id
-              ? {
-                  title: "Contract anchor",
-                  detail: `${provenancePayload.contract_id} ${provenancePayload.contract_version || ""}`.trim(),
-                }
-              : null,
-            provenancePayload?.runbook_id
-              ? {
-                  title: "Runbook anchor",
-                  detail: `${provenancePayload.runbook_id} ${provenancePayload.runbook_version || ""}`.trim(),
-                }
-              : null,
-            provenancePayload?.source_snapshot_id
-              ? { title: "Evidence bundle", detail: provenancePayload.source_snapshot_id }
-              : null,
-            provenancePayload?.evidence_hash
-              ? { title: "Evidence hash", detail: provenancePayload.evidence_hash }
-              : null,
-          ].filter(Boolean);
-    const rankingPayload = report.ranking;
-    const ranking = Array.isArray(rankingPayload)
-      ? rankingPayload
-      : listFrom(rankingPayload?.items || rankingPayload?.candidates || rankingPayload?.ranked);
-    const traceLabel = provenancePayload?.trace_id ? `Trace ${provenancePayload.trace_id}` : "";
-    const decisionCode = report.decision_code || "not classified";
+  function renderScore(report) {
+    const ranking = report.ranking || {};
+    const top = (ranking.candidates || [])[0];
+    if (!top) return "";
+    const parts = top.components || {};
+    const threshold = formatScore(ranking.minimum_routing_score);
+    const terms = (top.matched_terms || []).join(", ") || "aucun";
+    const verdict = ranking.selected_runbook
+      ? `au-dessus du seuil de ${threshold} : runbook retenu.`
+      : `aucun runbook retenu (seuil ${threshold} et au moins un symptôme commun requis).`;
+    return `
+      <section class="triage-section">
+        <h3>Score de correspondance</h3>
+        <p class="score-line">
+          contrat ${formatScore(parts.contract_affinity)} + symptômes ${formatScore(parts.symptom_overlap)}
+          + sévérité ${formatScore(parts.severity_context)} = <b>${formatScore(report.match_score)}</b>
+        </p>
+        <p class="section-note">Meilleur candidat : <code>${escapeHtml(top.runbook_id)}</code>, symptômes retrouvés : ${escapeHtml(terms)} ; ${verdict}</p>
+      </section>`;
+  }
 
-    elements.reasoningIntro.hidden = true;
+  function renderTriage(report, narrative) {
+    const checks = report.quality_gate?.checks || [];
+    const provenance = report.provenance || {};
+    const candidates = report.ranking?.candidates || [];
+
+    elements.triageIntro.hidden = true;
     elements.triageResult.hidden = false;
-    elements.ledgerState.textContent = "Trace ready";
-    elements.ledgerState.className = "ledger-state is-ready";
+    setTriageState("Prêt", "is-ready");
+
+    const provenanceRows = [
+      ["Trace", provenance.trace_id],
+      ["Contrat", provenance.contract_id && `${provenance.contract_id} ${provenance.contract_version}`],
+      ["Runbook", provenance.runbook_id ? `${provenance.runbook_id} ${provenance.runbook_version}` : "aucun retenu"],
+      ["Lot de preuves", provenance.source_snapshot_id],
+      ["Empreinte", provenance.evidence_hash],
+    ].filter(([, value]) => value);
+
     elements.triageResult.innerHTML = `
-      <section class="triage-summary">
-        <span>Suggested decision</span>
-        <strong>${escapeHtml(report.decision || "No decision was returned.")}</strong>
-        <div class="confidence"><span>Evidence confidence</span><b>${confidence}%</b></div>
-      </section>
-      <section class="decision-frame">
-        <div class="decision-frame-heading">
-          <div>
-            <h3>Decision checkpoint</h3>
-            <p>This is a recommendation, not an operation.</p>
-          </div>
-          <span class="gate-badge gate-${escapeHtml(stateClass(gateState))}">${escapeHtml(codeLabel(gateState))}</span>
-        </div>
+      <section class="triage-section">
+        <h3>Décision proposée</h3>
+        <p class="decision-text">${escapeHtml(report.decision)}</p>
         <dl class="decision-facts">
-          <div><dt>Decision code</dt><dd>${escapeHtml(codeLabel(decisionCode))}</dd></div>
-          <div><dt>Gate state</dt><dd>${escapeHtml(codeLabel(gateState))}</dd></div>
+          <div><dt>Code</dt><dd><code>${escapeHtml(report.decision_code)}</code></dd></div>
+          <div><dt>Contrôle</dt><dd class="gate gate-${escapeHtml(report.gate_state)}">${escapeHtml(label("gate", report.gate_state))}</dd></div>
         </dl>
-        <div class="impact-block">
-          <span>Expected impact</span>
-          <ul class="impact-list">
-            ${
-              impacts
-                .map((impact) => {
-                  if (impact && typeof impact === "object") {
-                    return `<li><strong>${escapeHtml(impact.consumer || "consumer")} · ${escapeHtml(impact.tier || "tier not recorded")}</strong><span>${escapeHtml(impact.reason || impact.recommended_action || "Impact details were not returned.")}</span></li>`;
-                  }
-                  return `<li>${escapeHtml(textFrom(impact))}</li>`;
-                })
-                .join("") || "<li>No impact scope was returned.</li>"
-            }
-          </ul>
-        </div>
-        <div class="quality-gate">
-          <span class="quality-gate-mark" aria-hidden="true">✓</span>
-          <div>
-            <strong>Quality gate</strong>
-            <p>${escapeHtml(gateReason)}</p>
-            ${qualityChecks.length ? `<ul>${qualityChecks.map((check) => `<li>${escapeHtml(qualityCheckLabel(check))}</li>`).join("")}</ul>` : ""}
-          </div>
-        </div>
+      </section>
+      ${renderScore(report)}
+      <section class="triage-section">
+        <h3>Hypothèse de travail</h3>
+        <p>${escapeHtml(report.hypothesis)}</p>
       </section>
       <section class="triage-section">
-        <h3>Working hypothesis</h3>
-        <p>${escapeHtml(report.hypothesis || "No hypothesis was returned.")}</p>
-      </section>
-      <section class="triage-section">
-        <h3>First actions</h3>
+        <h3>Premières actions</h3>
         <ol class="action-steps">
-          ${firstActions
-            .map((action, index) => `<li><b>0${index + 1}</b><span>${escapeHtml(action)}</span></li>`)
-            .join("") || "<li><span>No actions were returned.</span></li>"}
+          ${(report.first_actions || []).map((action) => `<li>${escapeHtml(action)}</li>`).join("")}
         </ol>
+        ${report.escalation ? `<p class="section-note">${escapeHtml(report.escalation)}</p>` : ""}
       </section>
       <section class="triage-section">
-        <h3>Evidence ledger</h3>
+        <h3>Consommateurs touchés</h3>
+        <ul class="impact-list">
+          ${
+            (report.impact || [])
+              .map(
+                (impact) =>
+                  `<li><strong><code>${escapeHtml(impact.consumer)}</code> · ${escapeHtml(label("tier", impact.tier))}</strong><span>${escapeHtml(impact.reason)}</span></li>`
+              )
+              .join("") || "<li>Aucun consommateur déclaré dans le contrat.</li>"
+          }
+        </ul>
+      </section>
+      <section class="triage-section">
+        <h3>Contrôles du triage</h3>
+        <ul class="check-list">
+          ${checks
+            .map(
+              (check) =>
+                `<li><span class="check-status ${check.status === "pass" ? "is-pass" : "is-review"}">${escapeHtml(label("check", check.status))}</span><span>${escapeHtml(check.label)}<small>${escapeHtml(check.detail)}</small></span></li>`
+            )
+            .join("")}
+        </ul>
+      </section>
+      <details class="triage-details">
+        <summary>Éléments cités, classement et provenance</summary>
+      <section class="triage-section">
+        <h3>Éléments cités</h3>
         <ul class="evidence-list">
-          ${evidence
+          ${(report.evidence || [])
             .map(
               (item) => `
                 <li>
-                  <strong>${escapeHtml(item.title || item.source_id || "Evidence")}</strong>
-                  <p>${escapeHtml(item.excerpt || "No excerpt available.")}</p>
-                  <span>${escapeHtml(sentenceCase(item.source_type || "source"))} · ${Math.round(Number(item.confidence || 0) * 100)}% confidence</span>
+                  <strong>${escapeHtml(item.title)}</strong>
+                  <p>${escapeHtml(item.excerpt)}</p>
+                  <small>${escapeHtml(label("sourceType", item.source_type))} · ${escapeHtml(item.source_snapshot_id)}</small>
                 </li>`
             )
-            .join("") || "<li><strong>No evidence was returned.</strong></li>"}
+            .join("")}
         </ul>
       </section>
-      ${
-        provenance.length || ranking.length
-          ? `<section class="triage-section reasoning-details">
-              <h3>Decision provenance</h3>
-              ${traceLabel ? `<p class="trace-id">${escapeHtml(traceLabel)}</p>` : ""}
-              ${
-                provenance.length
-                  ? `<ul class="provenance-list">
-                      ${provenance
-                        .map((item) => {
-                          const detail = item && typeof item === "object" ? item.detail || item.excerpt || item.source_type || item.reason : "";
-                          return `<li><strong>${escapeHtml(textFrom(item))}</strong>${detail ? `<span>${escapeHtml(detail)}</span>` : ""}</li>`;
-                        })
-                        .join("")}
-                    </ul>`
-                  : ""
-              }
-              ${
-                ranking.length
-                  ? `<div class="ranking-block"><span>Candidate ranking</span><ol>
-                      ${ranking
-                        .map((item, index) => {
-                          const label = textFrom(item, `candidate ${index + 1}`);
-                          const score = item && typeof item === "object" && item.score !== undefined ? ` ${Math.round(Number(item.score) * 100)}%` : "";
-                          return `<li><b>0${index + 1}</b><span>${escapeHtml(label)}</span><em>${escapeHtml(score)}</em></li>`;
-                        })
-                        .join("")}
-                    </ol></div>`
-                  : ""
-              }
-            </section>`
-          : ""
-      }
+      <section class="triage-section">
+        <h3>Classement des runbooks</h3>
+        <ol class="ranking-list">
+          ${candidates
+            .map(
+              (item) =>
+                `<li><span><code>${escapeHtml(item.runbook_id)}</code><small>${item.contract_match ? "même contrat" : "autre contrat"}</small></span><span class="score-line">${formatScore(item.score)}</span></li>`
+            )
+            .join("")}
+        </ol>
+      </section>
+      <section class="triage-section">
+        <h3>Provenance</h3>
+        <ul class="provenance-list">
+          ${provenanceRows.map(([name, value]) => `<li><span>${name}</span><code>${escapeHtml(value)}</code></li>`).join("")}
+        </ul>
+      </section>
+      </details>
       ${
         narrative?.text
-          ? `<section class="triage-section narrative-section">
-              <h3>Narrative trace</h3>
+          ? `<section class="triage-section">
+              <h3>Synthèse générée par règles</h3>
               <p>${escapeHtml(narrative.text)}</p>
-              <span class="narrative-provider">${escapeHtml(narrative.provider || "local provider")} · ${escapeHtml((narrative.citations || []).length)} cited records</span>
+              <span class="narrative-provider"><code>${escapeHtml(narrative.provider)}</code> · ${plural((narrative.citations || []).length, "élément cité", "éléments cités")}</span>
             </section>`
           : ""
       }
       <section class="review-box" aria-labelledby="reviewTitle">
-        <div class="review-heading">
-          <div>
-            <h3 id="reviewTitle">Human review required</h3>
-            <p>Record the operator decision. Sillage never applies the proposed remediation.</p>
-          </div>
-          <span>Manual gate</span>
-        </div>
-        <label class="review-note-label" for="reviewNote">Optional review note</label>
-        <textarea id="reviewNote" class="review-note" rows="3" maxlength="420" placeholder="What did you verify, challenge or hand off?"></textarea>
+        <h3 id="reviewTitle">Décision humaine</h3>
+        <p>Enregistrez votre décision. Sillage n'applique jamais la remédiation proposée.</p>
+        <label class="review-note-label" for="reviewNote">Note de revue (facultative)</label>
+        <textarea id="reviewNote" class="review-note" rows="3" maxlength="420" placeholder="Ce que vous avez vérifié, contesté ou transmis"></textarea>
         <div class="review-actions">
-          <button type="button" class="review-action review-accept" data-review-outcome="accepted">Accept triage</button>
-          <button type="button" class="review-action review-evidence" data-review-outcome="needs_evidence">Need more evidence</button>
-          <button type="button" class="review-action review-reject" data-review-outcome="rejected">Reject proposal</button>
+          <button type="button" class="review-action" data-review-outcome="accepted">Accepter le triage</button>
+          <button type="button" class="review-action" data-review-outcome="needs_evidence">Demander des éléments</button>
+          <button type="button" class="review-action" data-review-outcome="rejected">Rejeter</button>
         </div>
         <p class="review-feedback" id="reviewFeedback" aria-live="polite"></p>
       </section>
-      <p class="safety-note">${escapeHtml(report.safety_note || "This suggestion is advisory. A responsible team member must approve and execute any action.")}</p>`;
+      <p class="safety-note">${escapeHtml(report.safety_note)}</p>`;
   }
 
   function describeAuditEvent(event) {
-    const type = sentenceCase(event.event_type || "event");
-    const id = event.incident_id ? ` for ${event.incident_id}` : "";
     const payload = event.payload || {};
-    if (payload.message) return payload.message;
-    if (payload.status) return `${type}${id}: ${payload.status}`;
-    if (payload.outcome) return `${type}${id}: ${codeLabel(payload.outcome)}`;
-    return `${type}${id}`;
+    const incident = event.incident_id ? `${event.incident_id} · ` : "";
+    if (event.event_type === "triage_generated") {
+      return `${incident}${payload.decision_code || ""}${payload.runbook?.id ? ` · ${payload.runbook.id}` : " · aucun runbook retenu"}`;
+    }
+    if (event.event_type === "operator_review_recorded") {
+      return `${incident}${label("outcome", payload.outcome)}${payload.note ? ` · «\u00a0${payload.note}\u00a0»` : ""}`;
+    }
+    if (event.event_type === "public_source_synced") return label("indicator", payload.indicator);
+    return incident.replace(/ · $/, "");
   }
 
   function renderAudit(payload) {
-    const events = collectionFrom(payload, ["events", "audit", "items"]);
+    const events = payload.items || [];
     if (!events.length) {
-      elements.auditList.innerHTML = '<p class="loading-copy">No decisions have been generated yet. The next triage or source sync will leave a receipt here.</p>';
+      elements.auditList.innerHTML =
+        '<p class="loading-copy">Journal vide. Le prochain triage, la prochaine revue ou synchronisation y laissera un reçu.</p>';
       return;
     }
     elements.auditList.innerHTML = events
@@ -468,7 +395,7 @@
         (event) => `
           <article class="audit-item">
             <span class="audit-time">${escapeHtml(formatDate(event.occurred_at))}</span>
-            <span class="audit-event">${escapeHtml(sentenceCase(event.event_type || "event"))}</span>
+            <span class="audit-event">${escapeHtml(label("event", event.event_type))}</span>
             <span class="audit-description">${escapeHtml(describeAuditEvent(event))}</span>
           </article>`
       )
@@ -477,32 +404,27 @@
 
   async function loadAudit() {
     try {
-      const payload = await api("/api/audit");
-      renderAudit(payload);
+      renderAudit(await api("/api/audit"));
     } catch (error) {
-      elements.auditList.innerHTML = `<p class="loading-copy">Audit trail unavailable: ${escapeHtml(error.message)}</p>`;
+      elements.auditList.innerHTML = `<p class="loading-copy is-error-copy">Journal indisponible : ${escapeHtml(error.message)}</p>`;
     }
   }
 
-  async function selectIncident(id, preserveTriage = false) {
+  async function selectIncident(id) {
     state.selectedId = id;
+    state.lastReport = null;
     renderQueue();
-    if (!preserveTriage) {
-      state.lastReport = null;
-      elements.reasoningIntro.hidden = false;
-      elements.triageResult.hidden = true;
-      elements.ledgerState.textContent = "Ready";
-      elements.ledgerState.className = "ledger-state";
-    }
+    elements.triageIntro.hidden = false;
+    elements.triageResult.hidden = true;
+    setTriageState("En attente");
 
-    elements.caseContent.innerHTML = '<p class="loading-copy">Loading case file...</p>';
+    elements.caseContent.innerHTML = '<p class="loading-copy">Chargement du dossier…</p>';
     try {
-      const detail = await api(`/api/incidents/${encodeURIComponent(id)}`);
-      renderCase(detail);
+      renderCase(await api(`/api/incidents/${encodeURIComponent(id)}`));
     } catch (error) {
       elements.caseActions.hidden = true;
-      elements.caseContent.innerHTML = `<div class="empty-case"><span class="empty-symbol" aria-hidden="true">!</span><h2 id="case-title">The case file could not be opened.</h2><p>${escapeHtml(error.message)}</p></div>`;
-      showToast("The incident detail could not be loaded.", true);
+      elements.caseContent.innerHTML = `<div class="empty-case is-error"><h2 id="case-title">Le dossier n'a pas pu être ouvert</h2><p>${escapeHtml(error.message)}</p></div>`;
+      showToast("Le détail de l'incident n'a pas pu être chargé.", true);
     }
   }
 
@@ -511,23 +433,21 @@
     if (!incident) return;
 
     elements.analyze.disabled = true;
-    elements.analyze.querySelector("span").textContent = "Reviewing evidence";
-    elements.ledgerState.textContent = "Working";
-    elements.ledgerState.className = "ledger-state is-working";
+    elements.analyze.textContent = "Triage en cours…";
+    setTriageState("En cours");
 
     try {
       const response = await api(`/api/incidents/${encodeURIComponent(incident.id)}/analyze`, { method: "POST" });
-      state.lastReport = response.report ?? response;
-      renderTriage(state.lastReport, response.narrative ?? null);
+      state.lastReport = response.report;
+      renderTriage(response.report, response.narrative);
       await loadAudit();
-      showToast("Grounded triage prepared. Review the evidence ledger before acting.");
+      showToast("Triage prêt. Relisez les éléments cités avant de décider.");
     } catch (error) {
-      elements.ledgerState.textContent = "Failed";
-      elements.ledgerState.className = "ledger-state";
-      showToast(`Triage could not be generated: ${error.message}`, true);
+      setTriageState("Échec", "is-failed");
+      showToast(`Le triage n'a pas pu être produit : ${error.message}`, true);
     } finally {
       elements.analyze.disabled = false;
-      elements.analyze.querySelector("span").textContent = "Produce triage";
+      elements.analyze.textContent = "Produire le triage";
     }
   }
 
@@ -535,42 +455,30 @@
     const incident = selectedIncident();
     if (!incident) return;
 
-    const note = document.getElementById("reviewNote")?.value.trim();
-    const feedback = document.getElementById("reviewFeedback");
+    const note = $("reviewNote")?.value.trim();
+    const feedback = $("reviewFeedback");
     const buttons = [...elements.triageResult.querySelectorAll("[data-review-outcome]")];
     buttons.forEach((button) => (button.disabled = true));
-    if (feedback) feedback.textContent = "Recording human review...";
+    feedback.className = "review-feedback";
+    feedback.textContent = "Enregistrement de la revue…";
 
     try {
       const payload = { outcome };
       if (note) payload.note = note;
       const traceId = state.lastReport?.provenance?.trace_id;
       if (traceId) payload.trace_id = traceId;
-      const response = await api(`/api/incidents/${encodeURIComponent(incident.id)}/reviews`, {
+      const { review } = await api(`/api/incidents/${encodeURIComponent(incident.id)}/reviews`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const review = response.review ?? response;
-      const recordedOutcome = codeLabel(review.outcome || outcome);
-      const recordedAt = review.recorded_at || review.created_at || review.occurred_at;
-      if (feedback) {
-        feedback.classList.remove("is-error");
-        feedback.classList.add("is-recorded");
-        const receipt = review.review_id ? ` Receipt ${review.review_id}.` : " Review receipt created.";
-        const recordedNote = review.note ? ` Note: ${review.note}` : "";
-        feedback.textContent = `Review recorded: ${recordedOutcome}${recordedAt ? ` at ${formatDate(recordedAt)}` : ""}.${receipt}${recordedNote}`;
-      }
-      trigger.classList.add("is-chosen");
+      buttons.forEach((button) => button.classList.toggle("is-chosen", button === trigger));
+      feedback.classList.add("is-recorded");
+      feedback.textContent = `Revue enregistrée : ${label("outcome", review.outcome)}, le ${formatDate(review.recorded_at)}. Reçu n° ${review.review_id}.`;
       await loadAudit();
-      showToast("Human review recorded in the decision trail.");
     } catch (error) {
-      if (feedback) {
-        feedback.classList.remove("is-recorded");
-        feedback.classList.add("is-error");
-        feedback.textContent = `Review could not be recorded: ${error.message}`;
-      }
-      showToast(`Review could not be recorded: ${error.message}`, true);
+      feedback.classList.add("is-error");
+      feedback.textContent = `La revue n'a pas pu être enregistrée : ${error.message}`;
     } finally {
       buttons.forEach((button) => (button.disabled = false));
     }
@@ -578,68 +486,59 @@
 
   async function syncPublicSource() {
     elements.syncSource.disabled = true;
-    elements.syncSource.lastChild.textContent = "Syncing";
+    elements.syncSource.textContent = "Synchronisation…";
     try {
-      const response = await api("/api/sources/github-status/sync", { method: "POST" });
-      const snapshot = response.snapshot ?? response;
-      state.sourceSnapshot = snapshot;
-      const status = snapshot.status || snapshot.indicator || "synced";
-      const description = snapshot.description || snapshot.message || "Public source snapshot captured for this session.";
-      elements.sourceStatus.textContent = sentenceCase(status);
-      elements.sourceNote.textContent = "public GitHub status signal";
-      elements.sourceCardText.textContent = description;
-      elements.sourceCard.classList.add("is-synced");
+      const { snapshot } = await api("/api/sources/github-status/sync", { method: "POST" });
+      const status = label("indicator", snapshot.indicator);
+      elements.sourceCount.textContent = `statut GitHub : ${status}`;
+      elements.sourceCardText.textContent = snapshot.ok
+        ? `GitHub Status, lu le ${formatDate(snapshot.retrieved_at)} : ${status} («\u00a0${snapshot.description}\u00a0»). Signal informatif, sans effet sur le triage.`
+        : `${snapshot.description}`;
       elements.sourceDetails.hidden = false;
       elements.sourceReceipt.textContent = JSON.stringify(snapshot, null, 2);
       await loadAudit();
-      showToast("Public context signal synced and recorded.");
     } catch (error) {
-      elements.sourceStatus.textContent = "Unavailable";
-      elements.sourceNote.textContent = "public source could not be reached";
-      elements.sourceCardText.textContent = "The control room remains usable without this optional external signal.";
-      showToast(`Public source unavailable: ${error.message}`, true);
+      elements.sourceCount.textContent = "statut GitHub indisponible";
+      elements.sourceCardText.textContent = "La source publique n'a pas répondu. Le triage local reste utilisable.";
+      showToast(`Source publique indisponible : ${error.message}`, true);
     } finally {
       elements.syncSource.disabled = false;
-      elements.syncSource.lastChild.textContent = "Sync public signal";
+      elements.syncSource.textContent = "Synchroniser le statut GitHub";
     }
   }
 
   async function loadHealth() {
     try {
       const health = await api("/api/health");
-      const mode = health.mode ? ` · ${sentenceCase(health.mode)}` : "";
-      elements.healthLabel.textContent = `Service available${mode}`;
+      elements.healthLabel.textContent = `Service disponible · v${health.version}`;
       elements.healthStatus.classList.add("is-healthy");
     } catch (_) {
-      elements.healthLabel.textContent = "Service unavailable";
+      elements.healthLabel.textContent = "Service indisponible";
       elements.healthStatus.classList.add("is-unavailable");
     }
   }
 
   async function loadEvaluation() {
     try {
-      const payload = await api("/api/evaluation");
-      const total = Number(payload.total ?? payload.total_cases ?? payload.count ?? 0);
-      const passed = Number(payload.passed ?? payload.passed_cases ?? payload.score ?? 0);
-      elements.evaluationScore.textContent = total ? `${passed}/${total} passed` : "Available";
-      elements.evaluationNote.textContent = payload.note || "golden checks on known incident patterns";
+      const { passed, total } = await api("/api/evaluation");
+      elements.evaluationCount.textContent = `${passed}/${total} cas de référence validés`;
     } catch (_) {
-      elements.evaluationScore.textContent = "Local";
-      elements.evaluationNote.textContent = "evaluation endpoint unavailable";
+      elements.evaluationCount.textContent = "cas de référence non vérifiés";
     }
   }
 
   async function loadIncidents() {
     try {
       const payload = await api("/api/incidents");
-      state.incidents = sortIncidents(collectionFrom(payload, ["incidents", "items", "data"]));
+      state.incidents = sortIncidents(payload.items || []);
       renderQueue();
       if (state.incidents.length) await selectIncident(state.incidents[0].id);
     } catch (error) {
-      elements.activeCount.textContent = "0";
+      elements.openCount.textContent = "file indisponible";
       elements.queueCount.textContent = "0";
-      elements.incidentList.innerHTML = `<p class="empty-list">The queue is unavailable: ${escapeHtml(error.message)}</p>`;
-      elements.caseContent.innerHTML = '<div class="empty-case"><span class="empty-symbol" aria-hidden="true">!</span><h2 id="case-title">No data is connected.</h2><p>Start the service to load the local incident scenarios.</p></div>';
+      elements.incidentList.innerHTML = `<p class="empty-list is-error-copy">La file est indisponible : ${escapeHtml(error.message)}</p>`;
+      elements.caseContent.innerHTML =
+        '<div class="empty-case is-error"><h2 id="case-title">Aucune donnée chargée</h2><p>Démarrez le service pour charger les incidents de démonstration.</p></div>';
     }
   }
 
@@ -647,7 +546,10 @@
     document.querySelectorAll(".filter").forEach((button) => {
       button.addEventListener("click", () => {
         state.filter = button.dataset.filter || "all";
-        document.querySelectorAll(".filter").forEach((item) => item.classList.toggle("is-active", item === button));
+        document.querySelectorAll(".filter").forEach((item) => {
+          item.classList.toggle("is-active", item === button);
+          item.setAttribute("aria-pressed", String(item === button));
+        });
         renderQueue();
       });
     });
@@ -671,14 +573,10 @@
     });
 
     document.querySelectorAll("[data-jump]").forEach((button) => {
-      button.addEventListener("click", () => document.getElementById(button.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      button.addEventListener("click", () => $(button.dataset.jump)?.scrollIntoView({ block: "start" }));
     });
   }
 
-  async function init() {
-    bindEvents();
-    await Promise.all([loadHealth(), loadEvaluation(), loadAudit(), loadIncidents()]);
-  }
-
-  init();
+  bindEvents();
+  Promise.all([loadHealth(), loadEvaluation(), loadAudit(), loadIncidents()]);
 })();

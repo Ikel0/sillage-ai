@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sillage-ai"
-version = "0.2.1"
-description = "Evidence-first decision support for data incidents"
+version = "0.3.0"
+description = "Deterministic, evidence-first triage for data incidents"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

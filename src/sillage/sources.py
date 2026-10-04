@@ -29,7 +29,7 @@ def github_status_snapshot(timeout_seconds: float = 4.0) -> dict[str, object]:
             "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "ok": False,
             "indicator": "unavailable",
-            "description": "The public source could not be reached. The local triage engine remains available.",
+            "description": "La source publique n'a pas répondu. Le triage local reste disponible.",
             "source_url": GITHUB_STATUS_URL,
             "error": type(error).__name__,
         }

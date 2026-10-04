@@ -10,6 +10,7 @@ from .repository import canonical_hash, contract_by_id, runbooks, validate_regis
 SEVERITY_WEIGHT = {"SEV-1": 1.0, "SEV-2": 0.72, "SEV-3": 0.45}
 MINIMUM_ROUTING_SCORE = 0.80
 TRIAGE_POLICY_VERSION = "triage-policy-v2"
+TIER_LABELS = {"critical": "critique", "high": "élevé", "medium": "moyen", "low": "faible"}
 
 
 @dataclass(frozen=True)
@@ -255,7 +256,7 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
         source_id=contract["id"],
         title=f"Contrat {contract['dataset']} {contract['version']}",
         excerpt=(
-            f"Niveau {contract['tier']} ; responsable {contract['owner']} ; SLA {contract['sla_minutes']} min ; "
+            f"Niveau {TIER_LABELS.get(contract['tier'], contract['tier'])} ; responsable {contract['owner']} ; SLA {contract['sla_minutes']} min ; "
             f"source {contract['authority']}."
         ),
         source_version=contract["version"],
