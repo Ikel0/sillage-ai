@@ -1,47 +1,48 @@
-# Sillage AI
+# Sillage
 
-> Evidence-first decision support for data incidents.
+Sillage relie un incident data à son contrat de données, au runbook pertinent et aux signaux observés, puis propose un triage qu'une personne accepte, conteste ou rejette. Le moteur est déterministe : il n'appelle aucun modèle de langage et fonctionne sans clé d'API.
 
-Sillage AI is a compact incident intelligence desk for data teams. It connects an incident to an explicit data contract, a relevant runbook and observed signals, then produces a recommendation that an operator can inspect and challenge.
+Sillage ne relance aucune donnée, ne modifie ni contrôle qualité ni contrat et ne notifie personne. La décision reste à l'équipe responsable.
 
-It is intentionally not an autonomous remediation tool. It never replays data, changes a quality gate, edits a contract or notifies an owner on its own.
+![Interface de Sillage : file de trois incidents, dossier INC-2407 (doublons dans le mart revenus) avec ses signaux et son contrat, et triage produit avec la décision proposée et le détail du score de correspondance](docs/demo.png)
 
-## Why this exists
+La capture montre le dossier INC-2407 ouvert et son triage : décision « contenir la publication », publication bloquée, score de correspondance 0,95 détaillé en contrat 0,64 + symptômes 0,15 + sévérité 0,16.
 
-Data incidents are rarely hard because information is absent. They are hard because the right information is spread across contracts, runbooks, operational signals and team context. Sillage brings those elements into one decision trail:
+## Pourquoi
+
+Un incident data est rarement difficile faute d'information. L'information est dispersée entre le contrat, le runbook, les signaux de supervision et le contexte de l'équipe. Sillage les réunit dans une seule trace de décision :
 
 ```text
-incident + observed signals
+incident + signaux observés
           |
           v
-contract and runbook retrieval
+contrat et runbook retrouvés
           |
           v
-evidence-bound recommendation
+proposition appuyée sur des éléments cités
           |
           v
-human decision and local audit trail
+décision humaine et journal local
 ```
 
-The project demonstrates production-minded habits that matter in a data platform role: clear ownership, versioned operating knowledge, safe abstention, deterministic fallbacks, downstream impact, auditability and regression checks.
+## Ce qui fonctionne
 
-## What is working
+- Une API FastAPI et une page de triage : file d'incidents, fiche dossier (signaux, contrat, contrôles, consommateurs), triage avec ses éléments cités, sa provenance et le classement des runbooks.
+- Un routage par score de correspondance calculé et affiché (voir plus bas), avec abstention explicite (`INSUFFICIENT_EVIDENCE`) quand aucun runbook n'atteint le seuil.
+- Une décision humaine enregistrée comme reçu (accepté, éléments demandés, rejeté) dans un journal SQLite chaîné par empreintes ; aucune revue ne déclenche d'action.
+- Trois cas de référence hors ligne, exécutés par la CI, qui vérifient le runbook retenu, la décision, la complétude de la provenance et l'absence d'action automatique.
 
-- FastAPI service with an interactive control room and generated OpenAPI documentation.
-- Offline deterministic triage for three realistic data quality incidents.
-- Startup validation for the local contract, incident and runbook registry. Missing ownership, version, references or downstream metadata blocks readiness.
-- Explicit evidence pack: versioned contract, selected runbook, timestamped signals, source snapshots and stable content hashes.
-- Safe abstention when the contract and symptoms do not ground a runbook strongly enough.
-- Machine-readable decision code, gate state and consumer-level impact for each recommendation.
-- Operator review receipt with accepted, needs-evidence and rejected outcomes. Reviews are recorded but never execute a remediation.
-- SQLite append-only audit trail with a simple hash link between local receipts.
-- Offline golden-case suite that checks runbook selection, decision alignment, provenance completeness and the no-action safety guard.
-- Optional public GitHub Status signal. It is informative only and never blocks local triage.
-- Docker, Render Blueprint and GitHub Actions configuration.
+Le statut public de GitHub peut être lu à la demande ; il est informatif et n'influence jamais le triage.
 
-## Quick start
+## Le score de correspondance
 
-Python 3.11 or newer is required.
+Pour chaque runbook actif, le moteur additionne 0,64 si le runbook porte sur le même contrat que l'incident, jusqu'à 0,20 selon la part de ses symptômes retrouvés dans le texte de l'incident, et jusqu'à 0,16 selon la sévérité (0,16 pour SEV-1, 0,115 pour SEV-2, 0,072 pour SEV-3). Un runbook n'est retenu qu'à partir de 0,80 et avec au moins un symptôme commun. Le rapport expose ce score (`match_score`) et ses composantes ; ce n'est pas une probabilité.
+
+La synthèse affichée sous le triage est produite par des règles fixes dans `src/sillage/narrative.py`. Ce module définit aussi une interface pour un éventuel fournisseur de texte, qui ne recevrait que les éléments retrouvés et devrait citer des identifiants vérifiables ; aucun n'est branché. Détails dans [docs/guardrails.md](docs/guardrails.md).
+
+## Lancer en local
+
+Python 3.11 ou plus récent.
 
 ```bash
 python3 -m venv .venv
@@ -50,74 +51,64 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/uvicorn sillage.app:app --app-dir src --reload
 ```
 
-Open [http://localhost:8000](http://localhost:8000) for the incident desk. The OpenAPI contract is available at [http://localhost:8000/docs](http://localhost:8000/docs).
+La page est sur [http://localhost:8000](http://localhost:8000), le contrat OpenAPI sur [http://localhost:8000/docs](http://localhost:8000/docs).
 
-For a containerized run:
+Avec Docker :
 
 ```bash
 docker build -t sillage-ai .
 docker run --rm -p 10000:10000 -e PORT=10000 sillage-ai
 ```
 
-## API surface
+## API
 
-| Method | Path | Purpose |
+| Méthode | Chemin | Rôle |
 | --- | --- | --- |
-| `GET` | `/api/health` | Liveness and safety posture |
-| `GET` | `/api/incidents` | Incident queue |
-| `GET` | `/api/incidents/{id}` | Incident plus governing contract |
-| `POST` | `/api/incidents/{id}/analyze` | Evidence-first triage, no corrective action |
-| `POST` | `/api/incidents/{id}/reviews` | Record an operator decision, never execute a plan |
-| `GET` | `/api/incidents/{id}/reviews` | Read recorded operator-review receipts |
-| `GET` | `/api/contracts` | Data contract catalogue |
-| `GET` | `/api/audit` | Recent local audit events |
-| `GET` | `/api/evaluation` | Offline retrieval regression suite |
-| `POST` | `/api/sources/github-status/sync` | Optional public operational signal |
+| `GET` | `/api/health` | Disponibilité et état du registre |
+| `GET` | `/api/incidents` | File d'incidents |
+| `GET` | `/api/incidents/{id}` | Incident et contrat qui le gouverne |
+| `POST` | `/api/incidents/{id}/analyze` | Triage, sans action corrective |
+| `POST` | `/api/incidents/{id}/reviews` | Enregistre une décision humaine, n'exécute rien |
+| `GET` | `/api/incidents/{id}/reviews` | Reçus de revue d'un incident |
+| `GET` | `/api/contracts` | Catalogue des contrats de données |
+| `GET` | `/api/audit` | Derniers événements du journal |
+| `GET` | `/api/evaluation` | Cas de référence hors ligne |
+| `POST` | `/api/sources/github-status/sync` | Statut public GitHub, facultatif |
 
-Every API response includes an `X-Request-ID` header so an operator can connect an observation to a request in a future logging stack.
+Chaque réponse porte un en-tête `X-Request-ID` pour relier une observation à une requête.
 
-## How a recommendation is built
+## Comment un triage est construit
 
-1. The service validates the local registry, then resolves the versioned contract referenced by the incident.
-2. It ranks active runbooks with visible components: contract affinity, symptom overlap and severity context.
-3. It abstains if the best route does not meet both the contract and symptom evidence threshold.
-4. It presents the decision, gate posture, downstream consumer impact and raw evidence together.
-5. It emits a provenance receipt containing version identifiers, source snapshots, a trace id and an evidence hash.
-6. An operator accepts, requests more evidence or rejects the triage. That judgement becomes another auditable receipt.
+1. Le service valide le registre local, puis résout la version du contrat référencée par l'incident.
+2. Il classe les runbooks actifs par score de correspondance.
+3. Il s'abstient si le meilleur candidat n'atteint pas le seuil ou ne partage aucun symptôme.
+4. Il présente ensemble la décision, l'état du contrôle, les consommateurs touchés et les éléments bruts.
+5. Il émet un reçu de provenance : versions, snapshots sources, identifiant de trace et empreinte des éléments.
+6. Une personne accepte, demande des éléments ou rejette ; ce jugement devient un autre reçu du journal.
 
-The recommendation is useful because the operator can see exactly what it relies on. The engine does not pretend to know a root cause when the evidence does not support one.
-
-## The AI boundary
-
-The local demo uses a deterministic evidence-bound narrative provider. It requires no API key, so the project works in an offline review or interview setting.
-
-`src/sillage/narrative.py` exposes a small provider interface for a future LLM layer. A real provider must receive only the retrieved evidence pack and return citations that can be validated against it. The application intentionally has no autonomous tool execution path. The recommendation is still generated locally and deterministically, so it stays inspectable when no external model is available.
-
-Read the detailed guardrails in [docs/ai-safety.md](docs/ai-safety.md).
-
-## Project map
+## Organisation du dépôt
 
 ```text
-data/                  Representative contracts, incidents, runbooks and golden cases
-src/sillage/           FastAPI application and decision-support engine
-static/                Interactive incident intelligence desk
-tests/                 Offline API, audit, retrieval and source tests
-docs/                  Product, architecture and operating notes
-render.yaml            Render Blueprint
+data/                  Contrats, incidents, runbooks et cas de référence (fictifs)
+src/sillage/           Application FastAPI et moteur de triage
+static/                Page de triage
+tests/                 Tests hors ligne : API, journal, routage, sources
+docs/                  Notes produit, architecture et exploitation (en anglais)
+render.yaml            Blueprint Render
 ```
 
-## Deployment
+## Déploiement et limites
 
-The included [render.yaml](render.yaml) deploys the Docker image as a Render web service and checks `/api/health`. The local SQLite database and its hash link are deliberately demo mechanisms, not an immutable production ledger. For a multi-instance production deployment, replace them with a managed audit store and add identity, retention, durable job execution, a governed retrieval index and role-aware permissions.
+[render.yaml](render.yaml) déploie l'image Docker comme service web Render et surveille `/api/health`. La base SQLite locale et son chaînage par empreintes sont des mécanismes de démonstration, pas un registre immuable. En production multi-instance, il faudrait un stockage d'audit géré, une identité vérifiée, une politique de rétention, des permissions par rôle et un index de recherche gouverné. Les trois cas de référence protègent contre une régression sur ces scénarios ; ils ne mesurent pas la qualité du triage en général.
 
 ## Documentation
 
-- [Product brief](docs/product-brief.md)
-- [Working paper](docs/working-paper.md)
+- [Fiche produit](docs/product-brief.md)
+- [Note de travail](docs/working-paper.md)
 - [Architecture](docs/architecture.md)
-- [Operating model](docs/operating-model.md)
-- [AI safety and evaluation](docs/ai-safety.md)
+- [Modèle d'exploitation](docs/operating-model.md)
+- [Garde-fous et évaluation](docs/guardrails.md)
 
-## License
+## Licence
 
 MIT
