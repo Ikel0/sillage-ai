@@ -3,7 +3,7 @@
 ## Runtime view
 
 ```text
-Browser control room
+Browser triage desk
         |
         v
 FastAPI API
@@ -33,7 +33,7 @@ FastAPI API
 
 The engine requires both a matching contract and at least one matching symptom before a route can be selected. A score below the minimum routing threshold, or a missing symptom match, produces an explicit abstention with `INSUFFICIENT_EVIDENCE` rather than a plausible-looking runbook. The deliberately simple model makes the demo reviewable. In a production setting, retrieval quality would be measured on a larger benchmark, thresholded with held-out incident data and improved with lineage, ownership, recency and time-window features.
 
-Each selected report carries a provenance receipt: contract and runbook versions, timestamped source snapshots, content hashes, a deterministic evidence bundle hash and a trace id. The score is only a transparent route priority; it is not a calibrated probability of root cause.
+Each selected report carries a provenance receipt: contract and runbook versions, timestamped source snapshots, content hashes, a deterministic evidence bundle hash and a trace id. The score is only a transparent route priority; it is not a calibrated probability of root cause. The report exposes the best candidate's score as `match_score`, uncapped, and the interface shows it next to its three components.
 
 ### Narrative provider boundary
 

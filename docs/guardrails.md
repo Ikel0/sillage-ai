@@ -1,8 +1,8 @@
-# AI safety and evaluation
+# Guardrails and evaluation
 
 ## Current behavior
 
-Sillage is an evidence-first decision-support product. Its current recommendation engine is deterministic and works without a model provider or API key. The word AI describes the intended assisted-reasoning direction, not an unsupported claim of autonomous diagnosis.
+Sillage is evidence-first decision support for data incidents. Its recommendation engine is deterministic: it calls no language model and needs no model provider or API key.
 
 ## Grounding rules
 

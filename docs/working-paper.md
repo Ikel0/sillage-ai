@@ -1,6 +1,6 @@
-# Working paper: Evidence-first data incident intelligence
+# Working paper: Evidence-first data incident triage
 
-**Project:** Sillage AI
+**Project:** Sillage
 
 **Author:** Ikel Ouedraogo
 
@@ -96,4 +96,4 @@ Moving from prototype to production would require:
 
 Sillage does not try to automate incident command. Its value is the disciplined first step: connect a data incident to its contract, runbook and signals, explain what is known, record the recommendation and keep the next action with the responsible person.
 
-For the project architecture, see [architecture.md](architecture.md). For product goals and non-goals, see [product-brief.md](product-brief.md). For guardrails and evaluation details, see [ai-safety.md](ai-safety.md).
+For the project architecture, see [architecture.md](architecture.md). For product goals and non-goals, see [product-brief.md](product-brief.md). For guardrails and evaluation details, see [guardrails.md](guardrails.md).

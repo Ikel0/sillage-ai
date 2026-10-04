@@ -6,7 +6,7 @@ When a data quality alert fires, the first minutes matter. Analysts often need t
 
 ## Product position
 
-Sillage is an incident intelligence desk for data platforms. It is designed as decision support for an on-call engineer, analytics engineer or platform owner. It does not claim to replace incident command or automate remediation.
+Sillage is an incident triage desk for data platforms. It is designed as decision support for an on-call engineer, analytics engineer or platform owner. It does not claim to replace incident command or automate remediation.
 
 ## Core workflow
 
