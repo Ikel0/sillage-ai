@@ -109,18 +109,18 @@ def _rank_runbook(incident: dict[str, Any], runbook: dict[str, Any]) -> dict[str
 def _hypothesis(incident: dict[str, Any], grounded: bool) -> str:
     if not grounded:
         return (
-            "The available signals do not match an active runbook strongly enough. "
-            "Keep the current control in place and ask the contract owner for the missing context."
+            "Les signaux disponibles ne correspondent pas assez à un runbook actif. "
+            "Garder le contrôle actuel en place et demander le contexte manquant au responsable du contrat."
         )
 
     text = _incident_text(incident).lower()
-    if "duplicate" in text or "replay" in text:
-        return "A replay reached the aggregation path without a confirmed idempotency boundary."
-    if "schema" in text or "payload" in text or "occurred_at" in text:
-        return "A producer release introduced a payload that is incompatible with the published event contract."
-    if "null" in text or "key" in text:
-        return "The upstream extract is incomplete and a required business key is missing at source."
-    return "The evidence supports a gated investigation, but not a single root cause."
+    if "doublon" in text or "rejeu" in text:
+        return "Un rejeu a atteint l'agrégation sans frontière d'idempotence confirmée."
+    if "schéma" in text or "payload" in text or "occurred_at" in text:
+        return "Une release du producteur a introduit un payload incompatible avec le contrat d'événements publié."
+    if "null" in text or "clé" in text:
+        return "L'extrait amont est incomplet : une clé métier obligatoire manque à la source."
+    return "Les éléments justifient une investigation sous contrôle, sans désigner une cause unique."
 
 
 def _decision(incident: dict[str, Any], grounded: bool) -> tuple[str, str, str]:
@@ -128,26 +128,26 @@ def _decision(incident: dict[str, Any], grounded: bool) -> tuple[str, str, str]:
         return (
             "INSUFFICIENT_EVIDENCE",
             "review_required",
-            "Keep the current quality control in place and gather contract-owner context before any replay or release.",
+            "Garder le contrôle qualité actuel et obtenir le contexte du responsable du contrat avant tout rejeu ou publication.",
         )
     if incident["severity"] == "SEV-1":
         return (
             "CONTAIN_AND_REVIEW",
             "blocked",
-            "Contain publication and investigate with the owning team.",
+            "Contenir la publication et investiguer avec l'équipe responsable.",
         )
     return (
         "HOLD_FOR_REVIEW",
         "review_required",
-        "Keep the quality gate active and investigate before replay or release.",
+        "Garder le contrôle qualité actif et investiguer avant tout rejeu ou publication.",
     )
 
 
 def _impact(contract: dict[str, Any], gate_state: str) -> list[Impact]:
     if gate_state == "blocked":
-        action = "Do not publish a new affected asset until the contract owner confirms a safe correction."
+        action = "Ne publier aucun actif concerné avant que le responsable du contrat confirme une correction sûre."
     else:
-        action = "Keep this consumer on review until the contract checks and owner decision are complete."
+        action = "Garder ce consommateur en revue jusqu'aux contrôles du contrat et à la décision du responsable."
     return [
         Impact(
             consumer=consumer["id"],
@@ -168,7 +168,7 @@ def _signal_evidence(incident: dict[str, Any]) -> list[Evidence]:
                 source_type="signal",
                 source_id=f"{incident['id']}:{signal['name']}",
                 title=signal["name"],
-                excerpt=f"Observed {signal['value']}; expected {signal['threshold']}.",
+                excerpt=f"Observé : {signal['value']} ; attendu : {signal['threshold']}.",
                 source_version="incident-signal-v1",
                 observed_at=signal["observed_at"],
                 source_snapshot_id=signal["source_snapshot_id"],
@@ -184,37 +184,37 @@ def _quality_gate(
     checks = [
         QualityCheck(
             id="contract_resolved",
-            label="Contract resolved",
+            label="Contrat résolu",
             status="pass",
-            detail=f"{contract['id']} {contract['version']} is owned by {contract['owner']}.",
+            detail=f"{contract['id']} {contract['version']}, responsable : {contract['owner']}.",
         ),
         QualityCheck(
             id="runbook_alignment",
-            label="Runbook alignment",
+            label="Runbook aligné",
             status="pass" if grounded else "needs_review",
             detail=(
-                f"{selected_runbook['id']} {selected_runbook['version']} matches the contract and observed symptoms."
+                f"{selected_runbook['id']} {selected_runbook['version']} porte sur ce contrat et partage des symptômes observés."
                 if grounded and selected_runbook
-                else "No active runbook met the contract plus symptom evidence threshold."
+                else "Aucun runbook actif n'atteint le seuil (même contrat, symptôme commun, score ≥ 0,80)."
             ),
         ),
         QualityCheck(
             id="observable_signals",
-            label="Observable signals",
+            label="Signaux observés",
             status="pass" if any(item.source_type == "signal" for item in evidence) else "needs_review",
-            detail=f"{sum(item.source_type == 'signal' for item in evidence)} timestamped signals are attached.",
+            detail=f"{sum(item.source_type == 'signal' for item in evidence)} signaux horodatés sont joints.",
         ),
         QualityCheck(
             id="provenance_complete",
-            label="Provenance receipt",
+            label="Reçu de provenance",
             status="pass" if all(item.content_hash for item in evidence) else "needs_review",
-            detail="Every cited record carries a version or snapshot identifier and a content hash.",
+            detail="Chaque élément cité porte un identifiant de version ou de snapshot et une empreinte de contenu.",
         ),
         QualityCheck(
             id="human_gate",
-            label="Human decision gate",
+            label="Décision humaine",
             status="pass",
-            detail="Sillage cannot replay data, change a gate, or notify an owner automatically.",
+            detail="Sillage ne peut ni rejouer des données, ni modifier un contrôle, ni notifier un responsable.",
         ),
     ]
     return {
@@ -253,10 +253,10 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
         evidence_id=f"evidence.contract.{contract['id']}.{contract['version']}",
         source_type="data_contract",
         source_id=contract["id"],
-        title=f"{contract['dataset']} contract {contract['version']}",
+        title=f"Contrat {contract['dataset']} {contract['version']}",
         excerpt=(
-            f"Tier {contract['tier']}; owner {contract['owner']}; SLA {contract['sla_minutes']} min; "
-            f"authority {contract['authority']}."
+            f"Niveau {contract['tier']} ; responsable {contract['owner']} ; SLA {contract['sla_minutes']} min ; "
+            f"source {contract['authority']}."
         ),
         source_version=contract["version"],
         observed_at=contract["updated_at"],
@@ -290,7 +290,7 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
     }
     trace_id = f"triage-{canonical_hash(trace_seed)[:16]}"
     ranking = {
-        "method": "contract affinity + symptom overlap + severity context",
+        "method": "même contrat + part des symptômes retrouvés + poids de sévérité",
         "policy_version": TRIAGE_POLICY_VERSION,
         "minimum_routing_score": MINIMUM_ROUTING_SCORE,
         "selected_runbook": selected_runbook["id"] if selected_runbook else None,
@@ -304,20 +304,20 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
     }
     quality_gate = _quality_gate(contract, selected_runbook, evidence, grounded)
     impact = _impact(contract, gate_state)
-    impact_summary = selected_runbook["risk"] if selected_runbook else "Downstream impact is known, but no runbook is sufficiently grounded yet."
+    impact_summary = selected_runbook["risk"] if selected_runbook else "L'impact aval est connu, mais aucun runbook n'est encore assez étayé."
     first_actions = (
         selected_runbook["steps"]
         if selected_runbook
         else [
-            "Preserve the current gate and the raw incident evidence.",
-            f"Ask {contract['owner']} to confirm the relevant runbook or provide the missing operational context.",
-            "Do not replay, backfill, publish or override a quality control from this recommendation.",
+            "Conserver le contrôle actuel et les éléments bruts de l'incident.",
+            f"Demander à {contract['owner']} de confirmer le runbook pertinent ou d'apporter le contexte manquant.",
+            "Ne pas rejouer, recharger, publier ni contourner un contrôle qualité sur la base de cette proposition.",
         ]
     )
     escalation = (
         selected_runbook["escalation"]
         if selected_runbook
-        else f"Escalate to {contract['owner']} because the evidence threshold was not met."
+        else f"Escalader vers {contract['owner']} : le seuil de correspondance n'est pas atteint."
     )
 
     return TriageReport(
@@ -335,8 +335,8 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
         first_actions=first_actions,
         escalation=escalation,
         safety_note=(
-            "Sillage proposes a grounded triage plan. It does not change data, trigger a replay, "
-            "change a quality gate, or notify an owner automatically."
+            "Sillage propose un triage. Il ne modifie aucune donnée, ne déclenche aucun rejeu, "
+            "ne change aucun contrôle qualité et ne notifie personne."
         ),
         evidence=evidence,
         ranking=ranking,

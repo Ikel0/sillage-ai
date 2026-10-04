@@ -80,7 +80,7 @@ def _incident_summary(incident: dict[str, object]) -> dict[str, object]:
 def _get_incident_or_404(incident_id: str) -> dict[str, object]:
     incident = incident_by_id(incident_id)
     if incident is None:
-        raise HTTPException(status_code=404, detail=f"Incident {incident_id} was not found")
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} introuvable")
     return incident
 
 
@@ -94,7 +94,7 @@ async def health() -> dict[str, object]:
     try:
         registry = validate_registry()
     except RegistryValidationError as error:
-        raise HTTPException(status_code=503, detail=f"Registry is not ready: {error}") from error
+        raise HTTPException(status_code=503, detail=f"Registre incomplet : {error}") from error
     return {
         "status": "ok",
         "readiness": "ready",
@@ -126,7 +126,7 @@ async def get_incident(incident_id: str) -> dict[str, object]:
     contract_id = str(incident["contract_id"])
     contract = contract_by_id(contract_id)
     if contract is None:
-        raise HTTPException(status_code=500, detail=f"Contract {contract_id} is missing")
+        raise HTTPException(status_code=500, detail=f"Contrat {contract_id} manquant")
     return {"incident": incident, "contract": contract}
 
 
@@ -137,7 +137,7 @@ async def analyze_incident(incident_id: str, request: Request) -> dict[str, obje
     try:
         report = build_triage_report(incident)
     except RegistryValidationError as error:
-        raise HTTPException(status_code=503, detail=f"Triage registry is not ready: {error}") from error
+        raise HTTPException(status_code=503, detail=f"Registre de triage incomplet : {error}") from error
     narrative = compose_grounded_narrative(report)
     report_payload = report.as_dict()
     audit_event_id = record(
@@ -201,7 +201,7 @@ async def record_operator_review(
     )
     receipt = event_by_id(event_id)
     if receipt is None:
-        raise HTTPException(status_code=500, detail="Review receipt could not be read back")
+        raise HTTPException(status_code=500, detail="Le reçu de revue n'a pas pu être relu")
     return {
         "review": {
             "review_id": receipt["id"],

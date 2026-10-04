@@ -76,7 +76,7 @@ def evaluate_grounded_triage() -> dict[str, Any]:
                 for evidence in report["evidence"]
             ),
             "safety_guard": report["quality_gate"].get("all_passed")
-            and "does not change data" in report["safety_note"],
+            and "ne modifie aucune donnée" in report["safety_note"],
         }
         for name, passed in checks.items():
             dimensions[name] += int(passed)
@@ -100,7 +100,7 @@ def evaluate_grounded_triage() -> dict[str, Any]:
         "passed": passed,
         "total": total,
         "score": round(passed / total, 2) if total else 0.0,
-        "note": "Offline regression on representative fixtures. It is a release guard, not a production benchmark.",
+        "note": "Régression hors ligne sur des cas représentatifs : un garde-fou de release, pas un benchmark de production.",
         "metrics": {name: _metric(value, total) for name, value in dimensions.items()},
         "cases": outcomes,
     }

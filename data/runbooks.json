@@ -2,55 +2,72 @@
   {
     "id": "runbook.orders-duplicate",
     "version": "1.3.0",
-    "title": "Duplicate orders after replay",
+    "title": "Commandes en double après un rejeu",
     "contract_id": "contract.orders.v3",
-    "owner": "Revenue Platform",
+    "owner": "Plateforme revenus",
     "updated_at": "2026-09-19T10:00:00Z",
     "status": "active",
-    "symptoms": ["duplicate", "replay", "event_id", "idempotency"],
-    "steps": [
-      "Freeze publication of the affected mart while keeping raw ingestion available.",
-      "Compare producer retry identifiers with the consumer idempotency ledger.",
-      "Replay only the rejected partition once the duplicate key strategy is confirmed.",
-      "Record the correction window and validate downstream reconciliation before reopening the SLA."
+    "symptoms": [
+      "doublons",
+      "rejeu",
+      "event_id",
+      "idempotence"
     ],
-    "escalation": "Escalate to the event producer owner if a retry policy changed in the last deployment.",
-    "risk": "Double-counted revenue can affect finance and merchant KPIs."
+    "steps": [
+      "Geler la publication du mart concerné en laissant l'ingestion brute active.",
+      "Comparer les identifiants de retry du producteur avec le registre d'idempotence du consommateur.",
+      "Rejouer uniquement la partition rejetée une fois la stratégie de clé de déduplication confirmée.",
+      "Consigner la fenêtre de correction et valider le rapprochement en aval avant de rouvrir le SLA."
+    ],
+    "escalation": "Escalader vers le responsable du producteur d'événements si une politique de retry a changé au dernier déploiement.",
+    "risk": "Un chiffre d'affaires compté deux fois fausse les indicateurs finance et marchands."
   },
   {
     "id": "runbook.events-schema",
     "version": "2.1.0",
-    "title": "Customer event schema drift",
+    "title": "Dérive de schéma des événements clients",
     "contract_id": "contract.customer-events.v2",
-    "owner": "Customer Data Platform",
+    "owner": "Plateforme données clients",
     "updated_at": "2026-09-23T08:15:00Z",
     "status": "active",
-    "symptoms": ["schema", "field", "taxonomy", "payload", "version"],
-    "steps": [
-      "Quarantine only the incompatible payloads and preserve the original event envelope.",
-      "Diff the incoming payload against the published contract and identify the first incompatible field.",
-      "Agree a versioning path with the producer before widening a schema or accepting a new field.",
-      "Backfill the quarantined events only after the consumer compatibility test passes."
+    "symptoms": [
+      "schéma",
+      "champ",
+      "taxonomie",
+      "payload",
+      "version"
     ],
-    "escalation": "Escalate to the product instrumentation owner before changing the taxonomy.",
-    "risk": "Attribution and funnel metrics can silently diverge if unknown events are coerced."
+    "steps": [
+      "Mettre en quarantaine uniquement les payloads incompatibles en conservant l'enveloppe d'origine.",
+      "Comparer le payload reçu au contrat publié et repérer le premier champ incompatible.",
+      "Convenir d'un chemin de versionnage avec le producteur avant d'élargir le schéma ou d'accepter un nouveau champ.",
+      "Ne recharger les événements en quarantaine qu'après le passage du test de compatibilité consommateur."
+    ],
+    "escalation": "Escalader vers le responsable de l'instrumentation produit avant de modifier la taxonomie.",
+    "risk": "Les métriques d'attribution et de funnel divergent sans alerte si des événements inconnus sont forcés dans le schéma."
   },
   {
     "id": "runbook.inventory-null-key",
     "version": "1.4.0",
-    "title": "Inventory snapshot key integrity",
+    "title": "Intégrité des clés du snapshot d'inventaire",
     "contract_id": "contract.inventory.v1",
-    "owner": "Supply Operations",
+    "owner": "Opérations stock",
     "updated_at": "2026-09-16T11:20:00Z",
     "status": "active",
-    "symptoms": ["null", "sku", "warehouse", "snapshot", "key"],
-    "steps": [
-      "Stop the affected snapshot from replacing the latest trusted inventory view.",
-      "Measure the null-key rate by upstream warehouse and source extract time.",
-      "Recover the latest complete source slice instead of filling identifiers by inference.",
-      "Reconcile available quantity against the prior trusted snapshot before publication."
+    "symptoms": [
+      "null",
+      "sku",
+      "entrepôt",
+      "snapshot",
+      "clé"
     ],
-    "escalation": "Escalate to the warehouse feed owner if the extract is incomplete at source.",
-    "risk": "Bad stock keys can create false stockout alerts and incorrect fulfillment plans."
+    "steps": [
+      "Empêcher le snapshot concerné de remplacer la dernière vue d'inventaire fiable.",
+      "Mesurer le taux de clés nulles par entrepôt amont et par heure d'extraction.",
+      "Récupérer la dernière tranche source complète plutôt que de déduire les identifiants manquants.",
+      "Rapprocher la quantité disponible du snapshot fiable précédent avant publication."
+    ],
+    "escalation": "Escalader vers le responsable du flux entrepôt si l'extrait est incomplet à la source.",
+    "risk": "Des clés de stock erronées déclenchent de fausses alertes de rupture et faussent la planification des expéditions."
   }
 ]

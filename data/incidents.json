@@ -1,34 +1,34 @@
 [
   {
     "id": "INC-2407",
-    "title": "Revenue mart contains duplicate order events",
+    "title": "Doublons d'événements de commande dans le mart revenus",
     "contract_id": "contract.orders.v3",
     "severity": "SEV-1",
     "status": "investigating",
     "opened_at": "2026-09-30T08:42:00Z",
-    "summary": "The daily order aggregation is 4.8% above its reconciliation threshold after a producer replay.",
+    "summary": "L'agrégation quotidienne des commandes dépasse de 4,8 % son seuil de rapprochement après un rejeu côté producteur.",
     "signals": [
       {
         "kind": "quality",
-        "name": "duplicate event_id rate",
-        "value": "4.8%",
-        "threshold": "0.1%",
+        "name": "taux de event_id en double",
+        "value": "4,8 %",
+        "threshold": "0,1 %",
         "observed_at": "2026-09-30T08:40:00Z",
         "source_snapshot_id": "quality.orders_daily.2026-09-30T0840Z"
       },
       {
         "kind": "lineage",
-        "name": "upstream change",
-        "value": "producer retry policy deployed",
-        "threshold": "no unreviewed change",
+        "name": "changement amont",
+        "value": "nouvelle politique de retry du producteur",
+        "threshold": "aucun changement non revu",
         "observed_at": "2026-09-30T08:35:00Z",
         "source_snapshot_id": "deployments.producer.2026-09-30T0835Z"
       },
       {
         "kind": "consumer",
-        "name": "affected consumers",
+        "name": "consommateurs touchés",
         "value": "finance_daily, merchant_kpi",
-        "threshold": "none",
+        "threshold": "aucun",
         "observed_at": "2026-09-30T08:42:00Z",
         "source_snapshot_id": "lineage.orders_daily.2026-09-30T0842Z"
       }
@@ -36,34 +36,34 @@
   },
   {
     "id": "INC-2408",
-    "title": "Customer events rejected after payload change",
+    "title": "Événements clients rejetés après un changement de payload",
     "contract_id": "contract.customer-events.v2",
     "severity": "SEV-2",
     "status": "triage",
     "opened_at": "2026-09-30T10:15:00Z",
-    "summary": "A new mobile payload omits occurred_at for a subset of events and is rejected at the contract gate.",
+    "summary": "Une nouvelle version du payload mobile omet occurred_at sur une partie des événements, qui sont rejetés par le contrôle du contrat.",
     "signals": [
       {
         "kind": "quality",
-        "name": "rejected payload rate",
-        "value": "2.1%",
-        "threshold": "0.2%",
+        "name": "taux de payloads rejetés",
+        "value": "2,1 %",
+        "threshold": "0,2 %",
         "observed_at": "2026-09-30T10:13:00Z",
         "source_snapshot_id": "quality.customer_events.2026-09-30T1013Z"
       },
       {
         "kind": "contract",
-        "name": "incompatible field",
-        "value": "occurred_at missing",
-        "threshold": "required",
+        "name": "champ incompatible",
+        "value": "occurred_at absent",
+        "threshold": "obligatoire",
         "observed_at": "2026-09-30T10:14:00Z",
         "source_snapshot_id": "schema.customer_events.2026-09-30T1014Z"
       },
       {
         "kind": "lineage",
-        "name": "upstream change",
-        "value": "mobile 8.14 rollout",
-        "threshold": "versioned release",
+        "name": "changement amont",
+        "value": "déploiement mobile 8.14",
+        "threshold": "release versionnée",
         "observed_at": "2026-09-30T10:09:00Z",
         "source_snapshot_id": "deployments.mobile.2026-09-30T1009Z"
       }
@@ -71,34 +71,34 @@
   },
   {
     "id": "INC-2409",
-    "title": "Inventory snapshot has incomplete warehouse keys",
+    "title": "Snapshot d'inventaire avec des clés d'entrepôt incomplètes",
     "contract_id": "contract.inventory.v1",
     "severity": "SEV-2",
     "status": "open",
     "opened_at": "2026-09-30T11:03:00Z",
-    "summary": "One warehouse extract contains null warehouse_id values and cannot safely replace the current snapshot.",
+    "summary": "L'extrait d'un entrepôt contient des warehouse_id nuls et ne peut pas remplacer sans risque le snapshot actuel.",
     "signals": [
       {
         "kind": "quality",
-        "name": "null warehouse_id rate",
-        "value": "1.7%",
-        "threshold": "0%",
+        "name": "taux de warehouse_id null",
+        "value": "1,7 %",
+        "threshold": "0 %",
         "observed_at": "2026-09-30T11:01:00Z",
         "source_snapshot_id": "quality.inventory_snapshot.2026-09-30T1101Z"
       },
       {
         "kind": "freshness",
-        "name": "last trusted snapshot",
-        "value": "46 minutes ago",
-        "threshold": "under 60 minutes",
+        "name": "dernier snapshot fiable",
+        "value": "il y a 46 minutes",
+        "threshold": "moins de 60 minutes",
         "observed_at": "2026-09-30T11:03:00Z",
         "source_snapshot_id": "freshness.inventory_snapshot.2026-09-30T1103Z"
       },
       {
         "kind": "consumer",
-        "name": "affected consumers",
+        "name": "consommateurs touchés",
         "value": "stockout_alerts, fulfillment_planning",
-        "threshold": "none",
+        "threshold": "aucun",
         "observed_at": "2026-09-30T11:03:00Z",
         "source_snapshot_id": "lineage.inventory_snapshot.2026-09-30T1103Z"
       }

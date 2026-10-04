@@ -37,10 +37,7 @@ class DeterministicNarrativeProvider:
 
     def compose(self, report: TriageReport) -> GroundedNarrative:
         citations = [evidence.source_id for evidence in report.evidence]
-        text = (
-            f"The recommended next step is to {report.decision.lower()} "
-            f"The leading hypothesis is: {report.hypothesis}"
-        )
+        text = f"Prochaine étape proposée : {report.decision[0].lower()}{report.decision[1:]} Hypothèse principale : {report.hypothesis}"
         return GroundedNarrative(provider=self.name, text=text, citations=citations)
 
 

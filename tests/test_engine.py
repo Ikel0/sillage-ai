@@ -15,7 +15,7 @@ class GroundedTriageTests(unittest.TestCase):
         selected = next(evidence for evidence in report.evidence if evidence.source_type == "runbook")
 
         self.assertEqual(selected.source_id, "runbook.orders-duplicate")
-        self.assertIn("Contain publication", report.decision)
+        self.assertIn("Contenir la publication", report.decision)
         self.assertGreaterEqual(report.match_score, 0.8)
 
     def test_report_carries_contract_runbook_and_observed_signals(self) -> None:
@@ -28,7 +28,7 @@ class GroundedTriageTests(unittest.TestCase):
         self.assertIn("data_contract", evidence_types)
         self.assertIn("runbook", evidence_types)
         self.assertGreaterEqual(evidence_types.count("signal"), 3)
-        self.assertIn("does not change data", report.safety_note)
+        self.assertIn("ne modifie aucune donnée", report.safety_note)
         self.assertEqual(report.decision_code, "HOLD_FOR_REVIEW")
         self.assertEqual(report.gate_state, "review_required")
         self.assertTrue(report.quality_gate["all_passed"])

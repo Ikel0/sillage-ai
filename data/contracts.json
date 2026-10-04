@@ -4,31 +4,31 @@
     "version": "3.2.0",
     "dataset": "orders_daily",
     "domain": "commerce",
-    "owner": "Revenue Platform",
+    "owner": "Plateforme revenus",
     "tier": "critical",
     "sla_minutes": 45,
     "updated_at": "2026-09-18T09:00:00Z",
-    "authority": "Revenue Platform contract registry",
+    "authority": "Registre de contrats Plateforme revenus",
     "controls": [
-      "event_id is unique",
-      "order_total is non-negative",
-      "freshness is below 45 minutes"
+      "event_id est unique",
+      "order_total est positif ou nul",
+      "fraîcheur inférieure à 45 minutes"
     ],
     "consumers": [
       {
         "id": "finance_daily",
         "tier": "critical",
-        "reason": "Daily revenue reconciliation depends on a deduplicated order grain."
+        "reason": "Le rapprochement quotidien du chiffre d'affaires suppose un grain de commande dédoublonné."
       },
       {
         "id": "merchant_kpi",
         "tier": "high",
-        "reason": "Merchant performance metrics are calculated from the same aggregation."
+        "reason": "Les indicateurs de performance marchands sont calculés à partir de la même agrégation."
       },
       {
         "id": "retention_features",
         "tier": "medium",
-        "reason": "A downstream feature set consumes the daily order snapshot."
+        "reason": "Un jeu de features aval consomme le snapshot quotidien des commandes."
       }
     ]
   },
@@ -36,27 +36,27 @@
     "id": "contract.customer-events.v2",
     "version": "2.4.1",
     "dataset": "customer_events",
-    "domain": "growth",
-    "owner": "Customer Data Platform",
+    "domain": "acquisition",
+    "owner": "Plateforme données clients",
     "tier": "high",
     "sla_minutes": 30,
     "updated_at": "2026-09-22T13:30:00Z",
-    "authority": "Customer Data Platform contract registry",
+    "authority": "Registre de contrats Plateforme données clients",
     "controls": [
-      "event_name belongs to the approved taxonomy",
-      "occurred_at is present and UTC",
-      "payload schema is compatible with v2"
+      "event_name appartient à la taxonomie validée",
+      "occurred_at est présent et en UTC",
+      "le schéma du payload est compatible avec la v2"
     ],
     "consumers": [
       {
         "id": "campaign_attribution",
         "tier": "high",
-        "reason": "Attribution windows require complete event timestamps."
+        "reason": "Les fenêtres d'attribution exigent des horodatages d'événements complets."
       },
       {
         "id": "product_funnel",
         "tier": "high",
-        "reason": "Funnel stages rely on a compatible event taxonomy."
+        "reason": "Les étapes du funnel reposent sur une taxonomie d'événements compatible."
       }
     ]
   },
@@ -64,27 +64,27 @@
     "id": "contract.inventory.v1",
     "version": "1.5.0",
     "dataset": "inventory_snapshot",
-    "domain": "supply",
-    "owner": "Supply Operations",
+    "domain": "stock",
+    "owner": "Opérations stock",
     "tier": "high",
     "sla_minutes": 60,
     "updated_at": "2026-09-12T07:45:00Z",
-    "authority": "Supply Operations contract registry",
+    "authority": "Registre de contrats Opérations stock",
     "controls": [
-      "sku is present",
-      "warehouse_id is present",
-      "available_quantity is greater than or equal to zero"
+      "sku est présent",
+      "warehouse_id est présent",
+      "available_quantity est supérieur ou égal à zéro"
     ],
     "consumers": [
       {
         "id": "stockout_alerts",
         "tier": "high",
-        "reason": "Alert routing needs a stable warehouse key."
+        "reason": "Le routage des alertes a besoin d'une clé d'entrepôt stable."
       },
       {
         "id": "fulfillment_planning",
         "tier": "critical",
-        "reason": "Fulfillment planning uses the trusted inventory snapshot."
+        "reason": "La planification des expéditions utilise le snapshot d'inventaire fiable."
       }
     ]
   }
