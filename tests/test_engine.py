@@ -16,7 +16,7 @@ class GroundedTriageTests(unittest.TestCase):
 
         self.assertEqual(selected.source_id, "runbook.orders-duplicate")
         self.assertIn("Contain publication", report.decision)
-        self.assertGreaterEqual(report.confidence, 0.8)
+        self.assertGreaterEqual(report.match_score, 0.8)
 
     def test_report_carries_contract_runbook_and_observed_signals(self) -> None:
         incident = incident_by_id("INC-2408")
@@ -76,4 +76,17 @@ class GroundedTriageTests(unittest.TestCase):
         self.assertIsNone(report.ranking["selected_runbook"])
         self.assertFalse(report.quality_gate["all_passed"])
         self.assertNotIn("runbook", [evidence.source_type for evidence in report.evidence])
-        self.assertLess(report.confidence, 0.4)
+        self.assertIsNone(report.ranking["selected_score"])
+        self.assertLess(report.match_score, report.ranking["minimum_routing_score"])
+
+    def test_match_score_is_the_sum_of_its_visible_components(self) -> None:
+        for incident_id in ("INC-2407", "INC-2408", "INC-2409"):
+            report = build_triage_report(incident_by_id(incident_id) or {})
+            top = report.ranking["candidates"][0]
+            self.assertEqual(report.match_score, top["score"])
+            self.assertAlmostEqual(report.match_score, sum(top["components"].values()), delta=0.011)
+
+    def test_evidence_carries_no_hard_coded_confidence(self) -> None:
+        report = build_triage_report(incident_by_id("INC-2407") or {})
+        for evidence in report.evidence:
+            self.assertFalse(hasattr(evidence, "confidence"))

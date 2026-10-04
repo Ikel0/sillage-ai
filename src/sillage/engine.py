@@ -19,7 +19,6 @@ class Evidence:
     source_id: str
     title: str
     excerpt: str
-    confidence: float
     source_version: str
     observed_at: str
     source_snapshot_id: str
@@ -49,7 +48,7 @@ class TriageReport:
     decision_code: str
     decision: str
     gate_state: str
-    confidence: float
+    match_score: float
     impact: list[Impact]
     impact_summary: str
     hypothesis: str
@@ -89,7 +88,7 @@ def _rank_runbook(incident: dict[str, Any], runbook: dict[str, Any]) -> dict[str
     contract_score = 0.64 if contract_match else 0.0
     lexical_score = lexical_overlap * 0.20
     severity_score = SEVERITY_WEIGHT.get(incident["severity"], 0.4) * 0.16
-    score = min(contract_score + lexical_score + severity_score, 0.99)
+    score = contract_score + lexical_score + severity_score
     eligible = contract_match and bool(matched_terms) and score >= MINIMUM_ROUTING_SCORE
     return {
         "runbook_id": runbook["id"],
@@ -170,7 +169,6 @@ def _signal_evidence(incident: dict[str, Any]) -> list[Evidence]:
                 source_id=f"{incident['id']}:{signal['name']}",
                 title=signal["name"],
                 excerpt=f"Observed {signal['value']}; expected {signal['threshold']}.",
-                confidence=0.92,
                 source_version="incident-signal-v1",
                 observed_at=signal["observed_at"],
                 source_snapshot_id=signal["source_snapshot_id"],
@@ -260,7 +258,6 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
             f"Tier {contract['tier']}; owner {contract['owner']}; SLA {contract['sla_minutes']} min; "
             f"authority {contract['authority']}."
         ),
-        confidence=0.98,
         source_version=contract["version"],
         observed_at=contract["updated_at"],
         source_snapshot_id=f"contract-registry:{contract['id']}:{contract['version']}",
@@ -275,7 +272,6 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
                 source_id=selected_runbook["id"],
                 title=selected_runbook["title"],
                 excerpt=selected_runbook["risk"],
-                confidence=top_ranking["score"],
                 source_version=selected_runbook["version"],
                 observed_at=selected_runbook["updated_at"],
                 source_snapshot_id=f"runbook-registry:{selected_runbook['id']}:{selected_runbook['version']}",
@@ -330,7 +326,9 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
         decision_code=decision_code,
         decision=decision,
         gate_state=gate_state,
-        confidence=top_ranking["score"] if grounded else min(round(top_ranking["score"], 2), 0.39),
+        # The best candidate's routing score, uncapped. It is a sum of visible
+        # components (see ranking.candidates), not a probability.
+        match_score=top_ranking["score"],
         impact=impact,
         impact_summary=impact_summary,
         hypothesis=_hypothesis(incident, grounded),

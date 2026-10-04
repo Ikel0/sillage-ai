@@ -146,7 +146,7 @@ async def analyze_incident(incident_id: str, request: Request) -> dict[str, obje
             "mode": "evidence-first-decision-support",
             "request_id": request.state.request_id,
             "trace_id": report.provenance["trace_id"],
-            "confidence": report.confidence,
+            "match_score": report.match_score,
             "decision_code": report.decision_code,
             "gate_state": report.gate_state,
             "provider": narrative.provider,
