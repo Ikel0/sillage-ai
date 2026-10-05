@@ -44,7 +44,8 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Sillage", response.text)
-        self.assertIn("Triage d'incidents data", response.text)
+        self.assertIn("ne relance, ne modifie, ne notifie rien", response.text)
+        self.assertIn("Décidé par", response.text)
         self.assertNotIn("intelligence", response.text)
 
     def test_control_room_javascript_is_served(self) -> None:

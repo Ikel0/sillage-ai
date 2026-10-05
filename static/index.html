@@ -5,153 +5,149 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Sillage relie un incident data à son contrat, au runbook pertinent et aux signaux observés, puis propose un triage qu'une personne valide ou rejette."
+      content="Sillage rapproche un incident data de son contrat et du runbook le plus proche, puis propose un triage qu'une personne accepte, conteste ou rejette."
     />
-    <title>Sillage · triage d'incidents data</title>
+    <title>Sillage · fiches d'incidents data</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&display=swap"
     />
-    <link rel="stylesheet" href="/assets/app.css?v=0.3.0" />
+    <link rel="stylesheet" href="/assets/app.css?v=0.4.0" />
   </head>
   <body>
-    <a class="skip-link" href="#workspace">Aller à l'espace de triage</a>
+    <a class="skip-link" href="#fiche">Aller à la fiche d'incident</a>
 
-    <div class="app-shell">
-      <header class="topbar">
-        <a class="brand" href="/">Sillage</a>
-
-        <p class="topbar-status" aria-live="polite">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span id="healthLabel">Vérification du service</span>
-        </p>
-
-        <div class="topbar-actions">
-          <button class="text-action" type="button" data-jump="audit">Journal</button>
-          <button class="secondary-action" id="syncSource" type="button">Synchroniser le statut GitHub</button>
+    <div class="page">
+      <header class="masthead">
+        <a class="back-link" href="https://ikel0.github.io/">← Portfolio</a>
+        <div class="identity">
+          <h1>Sillage</h1>
+          <p>
+            rapproche chaque incident data de son contrat et du runbook le plus proche, puis propose un triage calculé
+            par des règles fixes, sans modèle de langage. Il ne relance, ne modifie, ne notifie rien&nbsp;: vous décidez.
+          </p>
         </div>
+        <div class="service-line">
+          <p class="service-facts" aria-live="polite">
+            <span id="healthLabel" class="health">Service : vérification en cours</span>
+            <span id="evaluationCount">Cas de référence : vérification en cours</span>
+            <span id="sourceCount">Statut GitHub : non synchronisé</span>
+          </p>
+          <p class="service-actions">
+            <button class="link-button" id="syncSource" type="button">Synchroniser le statut GitHub</button>
+            <button class="link-button" id="sourceDetails" type="button" hidden>Voir le reçu</button>
+            <button class="link-button" type="button" data-jump="audit">Journal</button>
+          </p>
+        </div>
+        <p class="source-note quiet small" id="sourceCardText"></p>
       </header>
 
-      <main>
-        <section class="masthead" aria-labelledby="page-title">
-          <h1 id="page-title">Triage d'incidents data</h1>
-          <p class="masthead-description">
-            Sillage propose un triage ; il ne relance, ne modifie et ne notifie rien.
-            Moteur déterministe, aucun modèle de langage.
-          </p>
-          <p class="counters" aria-live="polite">
-            <span id="openCount">incidents en cours de chargement</span>
-            <span class="sep" aria-hidden="true">·</span>
-            <span id="evaluationCount">cas de référence en cours de vérification</span>
-            <span class="sep" aria-hidden="true">·</span>
-            <span id="sourceCount">statut GitHub non synchronisé</span>
-          </p>
-        </section>
+      <main class="desk">
+        <nav class="queue" aria-labelledby="queue-title">
+          <div class="queue-head">
+            <h2 id="queue-title">File d'incidents</h2>
+            <p class="quiet small" id="openCount">en chargement</p>
+          </div>
+          <div class="filters" role="group" aria-label="Filtrer par sévérité">
+            <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">Tous</button>
+            <button class="filter" type="button" data-filter="SEV-1" aria-pressed="false">SEV-1</button>
+            <button class="filter" type="button" data-filter="SEV-2" aria-pressed="false">SEV-2</button>
+          </div>
+          <div id="incidentList" aria-live="polite">
+            <p class="quiet">Chargement de la file…</p>
+          </div>
+          <p class="quiet small" id="queueCount">Triés par sévérité, puis par heure d'ouverture.</p>
+        </nav>
 
-        <section class="workspace" id="workspace" aria-label="Espace de triage">
-          <aside class="queue-panel panel" aria-labelledby="queue-title">
-            <div class="panel-header">
-              <h2 id="queue-title">File d'incidents</h2>
-              <span class="queue-count" id="queueCount">0</span>
+        <article class="fiche" id="fiche" aria-labelledby="case-title" tabindex="-1">
+          <header class="fiche-head">
+            <p class="fiche-ref">Fiche <span id="caseReference">non sélectionnée</span> · <span id="caseStatus">en attente</span></p>
+            <div id="caseContent" aria-live="polite">
+              <h2 id="case-title">Aucun incident sélectionné</h2>
+              <p class="quiet">Choisissez un incident dans la file pour ouvrir sa fiche.</p>
             </div>
+          </header>
 
-            <div class="queue-filters" role="group" aria-label="Filtrer par sévérité">
-              <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">Tous</button>
-              <button class="filter" type="button" data-filter="SEV-1" aria-pressed="false">SEV-1</button>
-              <button class="filter" type="button" data-filter="SEV-2" aria-pressed="false">SEV-2</button>
+          <div class="fiche-body">
+            <div class="facts" id="caseFacts"></div>
+
+            <div class="verdict">
+              <section class="triage" aria-labelledby="triage-title">
+                <div class="section-head">
+                  <h3 id="triage-title"><span class="num">6</span>Triage proposé</h3>
+                  <span class="triage-state" id="triageState">non produit</span>
+                </div>
+                <p class="quiet" id="triageIntro">
+                  Le triage s'appuie sur la version active du contrat et sur le classement des runbooks. Rien n'est appliqué.
+                </p>
+                <p class="case-actions" id="caseActions" hidden>
+                  <button class="primary" id="analyzeIncident" type="button">Produire le triage</button>
+                </p>
+                <div id="triageResult" hidden></div>
+              </section>
+
+              <section class="decision" id="decision" aria-labelledby="decision-title" hidden>
+                <h3 id="decision-title"><span class="num">7</span>Décision</h3>
+                <p class="quiet small" id="decisionHint">Produisez le triage avant de décider. Votre décision est consignée au journal ; elle ne déclenche aucune action.</p>
+                <label class="field-label" for="reviewNote">Note de revue (facultative)</label>
+                <textarea id="reviewNote" rows="3" maxlength="420" placeholder="Ce que vous avez vérifié, contesté ou transmis"></textarea>
+                <div class="decision-choices" role="group" aria-label="Décision sur le triage">
+                  <button type="button" class="choice" data-review-outcome="accepted" disabled>Accepter le triage</button>
+                  <button type="button" class="choice" data-review-outcome="needs_evidence" disabled>Demander des éléments</button>
+                  <button type="button" class="choice" data-review-outcome="rejected" disabled>Rejeter</button>
+                </div>
+                <dl class="form-fields signoff">
+                  <div><dt>Décidé par</dt><dd>vous (démo)</dd></div>
+                  <div><dt>Horodatage</dt><dd id="decisionTime">pas encore décidé</dd></div>
+                  <div><dt>Reçu</dt><dd id="decisionReceipt">—</dd></div>
+                </dl>
+                <p class="review-feedback small" id="reviewFeedback" aria-live="polite"></p>
+              </section>
             </div>
-
-            <div class="incident-list" id="incidentList" aria-live="polite">
-              <p class="loading-copy">Chargement de la file…</p>
-            </div>
-
-            <p class="queue-footnote">Triés par sévérité, puis par heure d'ouverture.</p>
-          </aside>
-
-          <section class="case-panel panel" aria-labelledby="case-title">
-            <div class="case-topline">
-              <p class="case-reference">Dossier <span id="caseReference">non sélectionné</span></p>
-              <span class="case-status" id="caseStatus">En attente</span>
-            </div>
-
-            <div id="caseContent" class="case-content" aria-live="polite">
-              <div class="empty-case">
-                <h2 id="case-title">Aucun incident sélectionné</h2>
-                <p>Choisissez un incident dans la file pour afficher son contrat, ses contrôles et ses consommateurs.</p>
-              </div>
-            </div>
-
-            <div class="case-actions" id="caseActions" hidden>
-              <p class="action-copy">
-                Le triage s'appuie sur la version active du contrat et sur le classement des runbooks.
-              </p>
-              <button class="primary-action" id="analyzeIncident" type="button">Produire le triage</button>
-            </div>
-          </section>
-
-          <aside class="triage-panel panel" aria-labelledby="triage-title">
-            <div class="panel-header">
-              <h2 id="triage-title">Triage</h2>
-              <span class="triage-state" id="triageState">En attente</span>
-            </div>
-
-            <p class="triage-intro" id="triageIntro">
-              Sélectionnez un incident, puis lancez le triage pour voir la décision proposée et les éléments qui la fondent.
-            </p>
-
-            <div class="triage-result" id="triageResult" hidden></div>
-
-            <section class="source-card" aria-labelledby="source-title">
-              <h3 id="source-title">Contexte externe</h3>
-              <p id="sourceCardText">Aucune source publique n'a été interrogée pendant cette session.</p>
-              <button id="sourceDetails" class="text-action" type="button" hidden>Voir le reçu de la source</button>
-            </section>
-          </aside>
-
-          <section class="audit-panel panel" id="audit" aria-labelledby="audit-title">
-            <div class="panel-header">
-              <h2 id="audit-title">Journal de décision</h2>
-              <button class="text-action" id="refreshAudit" type="button">Actualiser</button>
-            </div>
-            <div class="audit-list" id="auditList" aria-live="polite">
-              <p class="loading-copy">Chargement du journal…</p>
-            </div>
-          </section>
-
-          <aside class="method-panel panel" aria-labelledby="method-title">
-            <h2 id="method-title">Méthode</h2>
-            <ol class="method-list">
-              <li>Lire les signaux de l'incident et son périmètre.</li>
-              <li>Rattacher l'incident à la version du contrat de données qui le gouverne.</li>
-              <li>Classer les runbooks actifs par score de correspondance.</li>
-              <li>S'abstenir si aucun runbook n'atteint le seuil, et laisser la décision à l'équipe responsable.</li>
-            </ol>
-            <p class="method-note">
-              Le score de correspondance additionne 0,64 si le runbook porte sur le même contrat, jusqu'à 0,20 selon
-              la part de ses symptômes retrouvés dans l'incident et jusqu'à 0,16 selon la sévérité ; un runbook n'est
-              retenu qu'à partir de 0,80 et avec au moins un symptôme commun.
-            </p>
-          </aside>
-        </section>
+          </div>
+        </article>
       </main>
 
+      <section class="journal" id="audit" aria-labelledby="audit-title">
+        <div class="section-head">
+          <h2 id="audit-title">Journal de décision</h2>
+          <button class="link-button" id="refreshAudit" type="button">Actualiser</button>
+        </div>
+        <p class="quiet small">Chaque triage, revue ou synchronisation laisse un reçu chaîné par empreinte dans une base SQLite locale.</p>
+        <div id="auditList" aria-live="polite">
+          <p class="quiet">Chargement du journal…</p>
+        </div>
+      </section>
+
+      <section class="method" aria-labelledby="method-title">
+        <h2 id="method-title">Comment le score est calculé</h2>
+        <p>
+          Pour chaque runbook actif : 0,64 s'il porte sur le même contrat que l'incident, jusqu'à 0,20 selon la part
+          de ses symptômes retrouvés dans le texte de l'incident, jusqu'à 0,16 selon la sévérité (0,16 pour SEV-1,
+          0,115 pour SEV-2, 0,072 pour SEV-3). Un runbook n'est retenu qu'à partir de 0,80 et avec au moins un symptôme
+          commun ; sinon Sillage s'abstient. Ce score n'est pas une probabilité. Le statut public de GitHub, lu seulement
+          à la demande, reste informatif et n'entre pas dans le calcul.
+        </p>
+      </section>
+
       <footer class="footer">
-        <p>Sillage, prototype de démonstration. Incidents fictifs, journal SQLite local.</p>
-        <a href="https://github.com/Ikel0/sillage-ai">Code source</a>
+        <a href="https://github.com/Ikel0/sillage-ai">Code source sur GitHub</a>
+        <span>Incidents, contrats et runbooks fictifs (dossier data/), journal SQLite local.</span>
+        <span>Licence MIT.</span>
       </footer>
     </div>
 
     <dialog class="source-dialog" id="sourceDialog" aria-labelledby="sourceDialogTitle">
-      <div class="dialog-heading">
+      <div class="section-head">
         <h2 id="sourceDialogTitle">Reçu de la source publique</h2>
-        <button class="dialog-close" id="closeSourceDialog" type="button" aria-label="Fermer le reçu">×</button>
+        <button class="link-button" id="closeSourceDialog" type="button">Fermer</button>
       </div>
       <pre id="sourceReceipt"></pre>
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/assets/app.js?v=0.3.0" defer></script>
+    <script src="/assets/app.js?v=0.4.0" defer></script>
   </body>
 </html>
