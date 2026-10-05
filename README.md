@@ -4,9 +4,9 @@ Sillage relie un incident data à son contrat de données, au runbook pertinent 
 
 Sillage ne relance aucune donnée, ne modifie ni contrôle qualité ni contrat et ne notifie personne. La décision reste à l'équipe responsable.
 
-![Interface de Sillage : file de trois incidents, dossier INC-2407 (doublons dans le mart revenus) avec ses signaux et son contrat, et triage produit avec la décision proposée et le détail du score de correspondance](docs/demo.png)
+![Interface de Sillage : file de trois incidents à gauche, fiche INC-2407 (doublons dans le mart revenus) avec identification, signaux observés et triage proposé, dont le calcul du score de correspondance](docs/demo.png)
 
-La capture montre le dossier INC-2407 ouvert et son triage : décision « contenir la publication », publication bloquée, score de correspondance 0,95 détaillé en contrat 0,64 + symptômes 0,15 + sévérité 0,16.
+La capture montre la fiche INC-2407 après triage : proposition « contenir la publication », publication bloquée, et le calcul posé du score, contrat 0,64 + symptômes 0,15 + sévérité 0,16 = 0,95 pour un seuil de 0,80. Plus bas, la fiche se termine par la décision humaine (accepter, demander des éléments, rejeter), signée « vous (démo) » et horodatée par le journal.
 
 ## Pourquoi
 
@@ -27,7 +27,7 @@ décision humaine et journal local
 
 ## Ce qui fonctionne
 
-- Une API FastAPI et une page de triage : file d'incidents, fiche dossier (signaux, contrat, contrôles, consommateurs), triage avec ses éléments cités, sa provenance et le classement des runbooks.
+- Une API FastAPI et une page en forme de fiche d'incident : file d'incidents, puis identification, signaux observés, contrat, contrôles, consommateurs, triage proposé et décision, dans cet ordre.
 - Un routage par score de correspondance calculé et affiché (voir plus bas), avec abstention explicite (`INSUFFICIENT_EVIDENCE`) quand aucun runbook n'atteint le seuil.
 - Une décision humaine enregistrée comme reçu (accepté, éléments demandés, rejeté) dans un journal SQLite chaîné par empreintes ; aucune revue ne déclenche d'action.
 - Trois cas de référence hors ligne, exécutés par la CI, qui vérifient le runbook retenu, la décision, la complétude de la provenance et l'absence d'action automatique.
