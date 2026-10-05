@@ -121,7 +121,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
 .filters { display: flex; margin: 10px 0 8px; }
 .filter {
   flex: 1;
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 10px;
   border: 1px solid var(--field);
   background: var(--bg);
@@ -170,7 +170,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
   align-items: start;
 }
 
-.facts > section + section { margin-top: 26px; }
+.facts > section + section, #contractSections > section { margin-top: 26px; }
 
 h3 {
   margin-bottom: 8px;
@@ -209,15 +209,77 @@ h4 { margin: 18px 0 4px; font-size: 0.9375rem; }
 .plain-list li + li { margin-top: 4px; }
 .plain-list .sub { margin-top: 1px; }
 
+/* Scénario modifiable */
+
+.edit-hint { margin: 0 0 14px; }
+
+.field {
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid var(--field);
+  border-radius: 2px;
+  background: var(--bg);
+  font-size: 0.9375rem;
+}
+select.field { max-width: 100%; padding-right: 4px; }
+input.field { width: 100%; min-width: 7rem; font-weight: 600; }
+input.field:disabled { color: var(--muted); background: var(--tint); }
+.form-fields dt label { cursor: pointer; }
+
+.keep-col { width: 44px; padding-right: 4px !important; }
+.check-target, .term {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.check-target input, .term input { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
+.signals td, .signals th { vertical-align: middle; }
+.signals tr.is-dropped th, .signals tr.is-dropped td:last-child { color: var(--muted); text-decoration: line-through; }
+
+.terms { margin: 14px 0 0; padding: 0; border: 0; }
+.terms legend { padding: 0; margin-bottom: 4px; font-size: 0.875rem; font-weight: 600; }
+#termList { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.term { justify-content: flex-start; gap: 8px; padding: 0 12px 0 10px; border: 1px solid var(--field); border-radius: 2px; }
+.term:has(input:not(:checked)) .code { color: var(--muted); text-decoration: line-through; }
+
+.changed-tag { margin-left: 8px; color: var(--muted); font-size: 0.8125rem; font-weight: 400; }
+
+.scenario-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 16px;
+  margin: 10px 0 0;
+  padding: 6px 10px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  font-size: 0.875rem;
+}
+.scenario-banner[hidden] { display: none; }
+.scenario-banner span { font-weight: 600; }
+.scenario-state { margin: 0 0 4px; color: var(--muted); font-size: 0.875rem; }
+.scenario-state.is-modified { color: var(--ink); font-weight: 600; }
+.scope-note { margin: 8px 0 0; padding-left: 10px; border-left: 2px solid var(--ink); }
+
+.calc .val.is-changed, .calc-caption .is-changed { background: var(--tint); }
+.calc .val { transition: background-color 180ms ease-out; }
+.calc .ref { display: block; color: var(--muted); font-size: 0.75rem; font-weight: 400; line-height: 1.2; }
+
 /* Triage et calcul */
 
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 .section-head h2, .section-head h3 { margin: 0; padding-bottom: 4px; border: 0; }
 .triage-state { color: var(--muted); font-size: 0.8125rem; text-align: right; }
 
-.case-actions { margin: 12px 0 0; }
+.fiche-title { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; }
+.case-actions { flex: none; margin: 0; }
+.triage:focus { outline: none; }
+.triage:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 .primary {
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 18px;
   border: 1px solid var(--ink);
   border-radius: 2px;
@@ -227,7 +289,7 @@ h4 { margin: 18px 0 4px; font-size: 0.9375rem; }
 }
 .primary:hover:not(:disabled) { background: #000; }
 .primary:disabled { cursor: wait; opacity: 0.6; }
-.primary.is-secondary { min-height: 34px; padding: 0 12px; background: var(--bg); color: var(--ink); font-weight: 400; font-size: 0.875rem; }
+.primary.is-secondary { min-height: 44px; padding: 0 12px; background: var(--bg); color: var(--ink); font-weight: 400; font-size: 0.875rem; }
 .primary.is-secondary:hover:not(:disabled) { background: var(--tint); }
 
 #triageResult { margin-top: 12px; }
@@ -248,7 +310,7 @@ h4 { margin: 18px 0 4px; font-size: 0.9375rem; }
 .steps li + li { margin-top: 4px; }
 
 .justification { margin: 18px 0 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.justification summary { padding: 9px 0; font-size: 0.9375rem; font-weight: 600; cursor: pointer; }
+.justification summary { padding: 12px 0; font-size: 0.9375rem; font-weight: 600; cursor: pointer; }
 .justification[open] { padding-bottom: 14px; }
 
 /* Décision */
@@ -267,7 +329,7 @@ h4 { margin: 18px 0 4px; font-size: 0.9375rem; }
 }
 .decision-choices { display: grid; gap: 6px; margin: 12px 0 14px; }
 .choice {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--ink);
   border-radius: 2px;
@@ -328,7 +390,13 @@ h4 { margin: 18px 0 4px; font-size: 0.9375rem; }
 .toast.is-error { background: var(--alert); }
 
 @media (prefers-reduced-motion: reduce) {
-  .toast { transition: none; }
+  .toast, .calc .val { transition: none; }
+}
+
+@media (pointer: coarse), (max-width: 520px) {
+  .link-button { min-height: 44px; display: inline-flex; align-items: center; }
+  .back-link, .footer a { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 0; }
+  .justification summary { padding: 12px 0; }
 }
 
 /* Largeurs réduites */
@@ -352,4 +420,9 @@ h4 { margin: 18px 0 4px; font-size: 0.9375rem; }
   .service-facts span + span::before { content: none; }
   .service-actions { margin-top: 6px; }
   .grid { font-size: 0.875rem; }
+  .signals thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .signals tr { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 8px; row-gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .signals th, .signals td { display: block; padding: 0 !important; border: 0; }
+  .signals .keep-col { grid-row: span 3; width: auto; }
+  .signals td:last-child::before { content: "Attendu : "; color: var(--muted); }
 }

@@ -14,7 +14,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&display=swap"
     />
-    <link rel="stylesheet" href="/assets/app.css?v=0.4.0" />
+    <link rel="stylesheet" href="/assets/app.css?v=0.5.0" />
   </head>
   <body>
     <a class="skip-link" href="#fiche">Aller à la fiche d'incident</a>
@@ -64,32 +64,53 @@
         <article class="fiche" id="fiche" aria-labelledby="case-title" tabindex="-1">
           <header class="fiche-head">
             <p class="fiche-ref">Fiche <span id="caseReference">non sélectionnée</span> · <span id="caseStatus">en attente</span></p>
-            <div id="caseContent" aria-live="polite">
-              <h2 id="case-title">Aucun incident sélectionné</h2>
-              <p class="quiet">Choisissez un incident dans la file pour ouvrir sa fiche.</p>
+            <div class="fiche-title">
+              <div id="caseContent" aria-live="polite">
+                <h2 id="case-title">Aucun incident sélectionné</h2>
+                <p class="quiet">Choisissez un incident dans la file pour ouvrir sa fiche.</p>
+              </div>
+              <p class="case-actions" id="caseActions" hidden>
+                <button class="primary" id="analyzeIncident" type="button">Produire le triage</button>
+              </p>
             </div>
+            <p class="scenario-banner" id="scenarioBanner" hidden>
+              <span>Scénario modifié par vous. Rien n'est enregistré ni partagé ; le recalcul utilise le vrai moteur.</span>
+              <button class="link-button" id="resetScenarioBanner" type="button">Revenir au cas de référence</button>
+            </p>
           </header>
 
           <div class="fiche-body">
             <div class="facts" id="caseFacts"></div>
 
             <div class="verdict">
-              <section class="triage" aria-labelledby="triage-title">
+              <section class="score" aria-labelledby="score-title">
                 <div class="section-head">
-                  <h3 id="triage-title"><span class="num">6</span>Triage proposé</h3>
+                  <h3 id="score-title"><span class="num">6</span>Calcul du score</h3>
+                  <button class="link-button" id="resetScenario" type="button" hidden>Réinitialiser</button>
+                </div>
+                <p class="scenario-state" id="scenarioState">Cas de référence : la fiche telle qu'enregistrée.</p>
+                <div id="scoreResult">
+                  <p class="quiet">Le calcul apparaît à l'ouverture d'une fiche.</p>
+                </div>
+              </section>
+
+              <section class="triage" id="triageSection" aria-labelledby="triage-title" tabindex="-1">
+                <div class="section-head">
+                  <h3 id="triage-title"><span class="num">7</span>Triage proposé</h3>
                   <span class="triage-state" id="triageState">non produit</span>
                 </div>
                 <p class="quiet" id="triageIntro">
-                  Le triage s'appuie sur la version active du contrat et sur le classement des runbooks. Rien n'est appliqué.
+                  « Produire le triage », en tête de fiche, s'appuie sur la fiche enregistrée, la version active du contrat
+                  et le classement des runbooks. Il laisse un reçu au journal ; rien n'est appliqué.
                 </p>
-                <p class="case-actions" id="caseActions" hidden>
-                  <button class="primary" id="analyzeIncident" type="button">Produire le triage</button>
+                <p class="scope-note small" id="triageScope" hidden>
+                  Le triage et la décision portent sur la fiche enregistrée, pas sur le scénario que vous avez modifié.
                 </p>
                 <div id="triageResult" hidden></div>
               </section>
 
               <section class="decision" id="decision" aria-labelledby="decision-title" hidden>
-                <h3 id="decision-title"><span class="num">7</span>Décision</h3>
+                <h3 id="decision-title"><span class="num">8</span>Décision</h3>
                 <p class="quiet small" id="decisionHint">Produisez le triage avant de décider. Votre décision est consignée au journal ; elle ne déclenche aucune action.</p>
                 <label class="field-label" for="reviewNote">Note de revue (facultative)</label>
                 <textarea id="reviewNote" rows="3" maxlength="420" placeholder="Ce que vous avez vérifié, contesté ou transmis"></textarea>
@@ -115,7 +136,7 @@
           <h2 id="audit-title">Journal de décision</h2>
           <button class="link-button" id="refreshAudit" type="button">Actualiser</button>
         </div>
-        <p class="quiet small">Chaque triage, revue ou synchronisation laisse un reçu chaîné par empreinte dans une base SQLite locale.</p>
+        <p class="quiet small">Les recalculs d'un scénario modifié n'y figurent pas. Chaque triage, revue ou synchronisation laisse un reçu chaîné par empreinte dans une base SQLite locale.</p>
         <div id="auditList" aria-live="polite">
           <p class="quiet">Chargement du journal…</p>
         </div>
@@ -148,6 +169,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/assets/app.js?v=0.4.0" defer></script>
+    <script src="/assets/app.js?v=0.5.0" defer></script>
   </body>
 </html>
