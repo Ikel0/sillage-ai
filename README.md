@@ -29,7 +29,7 @@ décision humaine et journal local
 
 - Une API FastAPI et une page en forme de fiche d'incident : file d'incidents, puis identification, signaux observés, contrat, contrôles, consommateurs, triage proposé et décision, dans cet ordre.
 - Un routage par score de correspondance calculé et affiché (voir plus bas), avec abstention explicite (`INSUFFICIENT_EVIDENCE`) quand aucun runbook n'atteint le seuil.
-- Une décision humaine enregistrée comme reçu (accepté, éléments demandés, rejeté) dans un journal SQLite chaîné par empreintes ; aucune revue ne déclenche d'action.
+- Une décision humaine enregistrée comme reçu (accepté, éléments demandés, rejeté) dans un journal SQLite chaîné par empreintes ; aucune revue ne déclenche d'action. Sur l'instance publique, chaque onglet a son propre journal (en-tête `X-Sillage-Session`), effacé au bout d'une heure ; la note de revue n'est jamais stockée, le reçu n'en garde que l'empreinte SHA-256 et la longueur.
 - Trois cas de référence hors ligne, exécutés par la CI, qui vérifient le runbook retenu, la décision, la complétude de la provenance et l'absence d'action automatique.
 
 Le statut public de GitHub peut être lu à la demande ; il est informatif et n'influence jamais le triage.
@@ -72,13 +72,13 @@ docker run --rm -p 10000:10000 -e PORT=10000 sillage-ai
 | `POST` | `/api/incidents/{id}/reviews` | Enregistre une décision humaine, n'exécute rien |
 | `GET` | `/api/incidents/{id}/reviews` | Reçus de revue d'un incident |
 | `GET` | `/api/contracts` | Catalogue des contrats de données |
-| `GET` | `/api/audit` | Derniers événements du journal |
+| `GET` | `/api/audit` | Derniers événements du journal de la session |
 | `GET` | `/api/evaluation` | Cas de référence hors ligne |
 | `POST` | `/api/sources/github-status/sync` | Statut public GitHub, facultatif |
 
 Chaque réponse porte un en-tête `X-Request-ID` pour relier une observation à une requête.
 
-La simulation est sans état : les modifications du visiteur voyagent avec chaque requête et ne sont jamais stockées, si bien qu'un visiteur ne voit jamais le scénario d'un autre sur l'instance publique. Le corps est limité à 16 Ko, chaque valeur à 200 caractères, et le débit à 90 recalculs par minute et par adresse.
+La simulation est sans état : les modifications du visiteur voyagent avec chaque requête et ne sont jamais stockées, si bien qu'un visiteur ne voit jamais le scénario d'un autre sur l'instance publique. Le corps est limité à 16 Ko, chaque valeur à 200 caractères, et le débit à 90 recalculs par minute et par adresse. Triage, décision et synchronisation sont limités à 30 par minute et par adresse ; l'adresse est lue dans `True-Client-IP`, sinon dans la valeur la plus à droite de `X-Forwarded-For`.
 
 ## Comment un triage est construit
 
