@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +11,16 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_DIR = ROOT / "runtime"
 DATABASE = RUNTIME_DIR / "sillage.db"
+
+# The public demo is one shared instance. Each browser tab gets its own journal
+# (keyed by a hash of its session token) and every receipt expires after an hour,
+# so no visitor sees another's decisions and nothing outlives the demo session.
+SESSION_TTL = timedelta(hours=1)
+LOCAL_SESSION = "local"
+
+
+def session_key(token: str) -> str:
+    return hashlib.sha256(f"sillage-session:{token}".encode("utf-8")).hexdigest()[:32]
 
 
 def _canonical_json(value: object) -> str:
@@ -41,6 +51,7 @@ def _ensure_columns(connection: sqlite3.Connection) -> None:
     for name, definition in {
         "previous_hash": "text",
         "event_hash": "text",
+        "session_key": "text",
     }.items():
         if name not in existing:
             connection.execute(f"alter table audit_events add column {name} {definition}")
@@ -61,15 +72,35 @@ def _connection() -> sqlite3.Connection:
             incident_id text,
             payload text not null,
             previous_hash text,
-            event_hash text
+            event_hash text,
+            session_key text
         )
         """
     )
     _ensure_columns(connection)
+    connection.execute("create index if not exists audit_events_session on audit_events (session_key, id)")
     return connection
 
 
-def record(event_type: str, payload: dict[str, Any], incident_id: str | None = None) -> int:
+def purge_expired(connection: sqlite3.Connection | None = None) -> int:
+    """Delete receipts older than SESSION_TTL, including rows from older schemas."""
+    own = connection is None
+    connection = connection or _connection()
+    try:
+        cutoff = (datetime.now(timezone.utc) - SESSION_TTL).isoformat()
+        with connection:
+            cursor = connection.execute(
+                "delete from audit_events where occurred_at < ? or session_key is null", (cutoff,)
+            )
+        return cursor.rowcount
+    finally:
+        if own:
+            connection.close()
+
+
+def record(
+    event_type: str, payload: dict[str, Any], incident_id: str | None = None, session: str = LOCAL_SESSION
+) -> int:
     """Persist a compact local receipt with a simple append-only integrity link.
 
     SQLite is demo storage only. The hash link gives the prototype a visible
@@ -78,18 +109,23 @@ def record(event_type: str, payload: dict[str, Any], incident_id: str | None = N
     """
 
     occurred_at = datetime.now(timezone.utc).isoformat()
+    key = session_key(session)
     connection = _connection()
     try:
+        purge_expired(connection)
         with connection:
             previous = connection.execute(
-                "select event_hash from audit_events where event_hash is not null order by id desc limit 1"
+                "select event_hash from audit_events where session_key = ? and event_hash is not null "
+                "order by id desc limit 1",
+                (key,),
             ).fetchone()
             previous_hash = str(previous["event_hash"]) if previous else None
             current_hash = _event_hash(occurred_at, event_type, incident_id, payload, previous_hash)
             cursor = connection.execute(
                 """
-                insert into audit_events (occurred_at, event_type, incident_id, payload, previous_hash, event_hash)
-                values (?, ?, ?, ?, ?, ?)
+                insert into audit_events
+                    (occurred_at, event_type, incident_id, payload, previous_hash, event_hash, session_key)
+                values (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     occurred_at,
@@ -98,6 +134,7 @@ def record(event_type: str, payload: dict[str, Any], incident_id: str | None = N
                     _canonical_json(payload),
                     previous_hash,
                     current_hash,
+                    key,
                 ),
             )
         return int(cursor.lastrowid)
@@ -106,12 +143,16 @@ def record(event_type: str, payload: dict[str, Any], incident_id: str | None = N
 
 
 def recent_events(
-    limit: int = 12, incident_id: str | None = None, event_type: str | None = None
+    limit: int = 12,
+    incident_id: str | None = None,
+    event_type: str | None = None,
+    session: str = LOCAL_SESSION,
 ) -> list[dict[str, Any]]:
     connection = _connection()
     try:
-        clauses: list[str] = []
-        parameters: list[object] = []
+        purge_expired(connection)
+        clauses: list[str] = ["session_key = ?"]
+        parameters: list[object] = [session_key(session)]
         if incident_id:
             clauses.append("incident_id = ?")
             parameters.append(incident_id)
@@ -132,15 +173,15 @@ def recent_events(
     return [_row_to_event(row) for row in rows]
 
 
-def event_by_id(event_id: int) -> dict[str, Any] | None:
+def event_by_id(event_id: int, session: str = LOCAL_SESSION) -> dict[str, Any] | None:
     connection = _connection()
     try:
         row = connection.execute(
             """
             select id, occurred_at, event_type, incident_id, payload, previous_hash, event_hash
-            from audit_events where id = ?
+            from audit_events where id = ? and session_key = ?
             """,
-            (event_id,),
+            (event_id, session_key(session)),
         ).fetchone()
     finally:
         connection.close()

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import httpx
 
+from sillage import app as app_module
 from sillage import audit
 from sillage.app import app
 
@@ -19,6 +20,7 @@ class ApiTests(unittest.TestCase):
         self.original_database = audit.DATABASE
         audit.RUNTIME_DIR = Path(self.temporary_directory.name)
         audit.DATABASE = audit.RUNTIME_DIR / "api-audit.db"
+        app_module._write_calls.clear()
     def tearDown(self) -> None:
         audit.RUNTIME_DIR = self.original_runtime_dir
         audit.DATABASE = self.original_database
@@ -28,7 +30,9 @@ class ApiTests(unittest.TestCase):
         async def send() -> httpx.Response:
             transport = httpx.ASGITransport(app=app)
             async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-                return await client.request(method, path, json=json)
+                return await client.request(
+                    method, path, json=json, headers={"X-Sillage-Session": "test-session-api-0001"}
+                )
 
         return asyncio.run(send())
 

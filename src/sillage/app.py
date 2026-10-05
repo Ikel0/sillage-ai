@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import re
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
@@ -14,7 +16,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
-from .audit import event_by_id, recent_events, record
+from .audit import event_by_id, purge_expired, recent_events, record
 from .engine import build_triage_report, simulate_routing
 from .evaluation import evaluate_grounded_triage
 from .narrative import compose_grounded_narrative
@@ -37,6 +39,7 @@ STATIC_DIR = ROOT / "static"
 async def lifespan(_: FastAPI):
     """Refuse to start if the local decision registry is incomplete."""
     validate_registry()
+    purge_expired()
     yield
 
 
@@ -80,28 +83,52 @@ SIMULATION_RATE_WINDOW_SECONDS = 60.0
 _simulation_calls: dict[str, deque[float]] = defaultdict(deque)
 
 
+WRITE_RATE_LIMIT = 30
+_write_calls: dict[str, deque[float]] = defaultdict(deque)
+
+SESSION_HEADER = "X-Sillage-Session"
+_SESSION_PATTERN = re.compile(r"^[A-Za-z0-9-]{16,64}$")
+
+
 def _client_ip(request: Request) -> str:
-    # Même lecture que Pacte et Routier : l'adresse du visiteur posée par le proxy
-    # (True-Client-IP), sinon la première de X-Forwarded-For, sinon la connexion.
+    # Même lecture que Pacte et Routier : l'adresse posée par le proxy (True-Client-IP),
+    # sinon la valeur la plus à droite de X-Forwarded-For, ajoutée par le dernier proxy ;
+    # les valeurs plus à gauche viennent du client et peuvent être forgées.
     true_client = request.headers.get("True-Client-IP", "").strip()
     if true_client:
         return true_client
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    if forwarded.strip():
-        return forwarded.split(",")[0].strip()
+    forwarded = [part.strip() for part in request.headers.get("X-Forwarded-For", "").split(",") if part.strip()]
+    if forwarded:
+        return forwarded[-1]
     return request.client.host if request.client else "unknown"
 
 
-def _check_simulation_rate(request: Request) -> None:
+def _session(request: Request) -> str:
+    """Each browser tab sends its own token; without one, the request gets a throwaway session."""
+    token = request.headers.get(SESSION_HEADER, "").strip()
+    if _SESSION_PATTERN.fullmatch(token):
+        return token
+    return f"anonymous-{uuid4()}"
+
+
+def _check_rate(request: Request, calls_by_ip: dict[str, deque[float]], limit: int, message: str) -> None:
     now = time.monotonic()
-    if len(_simulation_calls) > 5_000:
-        _simulation_calls.clear()
-    calls = _simulation_calls[_client_ip(request)]
+    if len(calls_by_ip) > 5_000:
+        calls_by_ip.clear()
+    calls = calls_by_ip[_client_ip(request)]
     while calls and now - calls[0] > SIMULATION_RATE_WINDOW_SECONDS:
         calls.popleft()
-    if len(calls) >= SIMULATION_RATE_LIMIT:
-        raise HTTPException(status_code=429, detail="Trop de recalculs en une minute ; réessayez dans un instant.")
+    if len(calls) >= limit:
+        raise HTTPException(status_code=429, detail=message)
     calls.append(now)
+
+
+def _check_simulation_rate(request: Request) -> None:
+    _check_rate(request, _simulation_calls, SIMULATION_RATE_LIMIT, "Trop de recalculs en une minute ; réessayez dans un instant.")
+
+
+def _check_write_rate(request: Request) -> None:
+    _check_rate(request, _write_calls, WRITE_RATE_LIMIT, "Trop d'enregistrements en une minute ; réessayez dans un instant.")
 
 
 @app.middleware("http")
@@ -182,6 +209,7 @@ async def get_incident(incident_id: str) -> dict[str, object]:
 async def analyze_incident(incident_id: str, request: Request) -> dict[str, object]:
     """Build a grounded recommendation. This endpoint never performs a corrective action."""
     incident = _get_incident_or_404(incident_id)
+    _check_write_rate(request)
     try:
         report = build_triage_report(incident)
     except RegistryValidationError as error:
@@ -213,6 +241,7 @@ async def analyze_incident(incident_id: str, request: Request) -> dict[str, obje
             "automated_action": False,
         },
         incident_id=incident_id,
+        session=_session(request),
     )
     return {
         "report": report_payload,
@@ -269,20 +298,30 @@ async def simulate_incident(incident_id: str, request: Request) -> dict[str, obj
 async def record_operator_review(
     incident_id: str, review: ReviewInput, request: Request
 ) -> dict[str, object]:
-    """Record an operator's judgement. It does not execute the proposed plan."""
+    """Record an operator's judgement. It does not execute the proposed plan.
+
+    The free-text note is never stored: the receipt keeps its fingerprint and length,
+    so the journal can prove a note existed without republishing what a visitor typed.
+    """
     _get_incident_or_404(incident_id)
+    _check_write_rate(request)
+    session = _session(request)
+    note = review.note.strip()
+    note_sha256 = hashlib.sha256(note.encode("utf-8")).hexdigest() if note else None
     event_id = record(
         "operator_review_recorded",
         {
             "request_id": request.state.request_id,
             "outcome": review.outcome,
-            "note": review.note.strip(),
+            "note_sha256": note_sha256,
+            "note_length": len(note),
             "trace_id": review.trace_id,
             "automated_action": False,
         },
         incident_id=incident_id,
+        session=session,
     )
-    receipt = event_by_id(event_id)
+    receipt = event_by_id(event_id, session=session)
     if receipt is None:
         raise HTTPException(status_code=500, detail="Le reçu de revue n'a pas pu être relu")
     return {
@@ -290,7 +329,7 @@ async def record_operator_review(
             "review_id": receipt["id"],
             "incident_id": incident_id,
             "outcome": review.outcome,
-            "note": review.note.strip(),
+            "note_sha256": note_sha256,
             "trace_id": review.trace_id,
             "recorded_at": receipt["occurred_at"],
             "audit_hash": receipt["event_hash"],
@@ -303,10 +342,12 @@ async def record_operator_review(
 
 
 @app.get("/api/incidents/{incident_id}/reviews", tags=["Review"])
-async def list_operator_reviews(incident_id: str, limit: int = 12) -> dict[str, object]:
+async def list_operator_reviews(incident_id: str, request: Request, limit: int = 12) -> dict[str, object]:
     _get_incident_or_404(incident_id)
     bounded_limit = max(1, min(limit, 100))
-    items = recent_events(bounded_limit, incident_id=incident_id, event_type="operator_review_recorded")
+    items = recent_events(
+        bounded_limit, incident_id=incident_id, event_type="operator_review_recorded", session=_session(request)
+    )
     return {"items": items, "total": len(items)}
 
 
@@ -316,9 +357,10 @@ async def list_contracts() -> dict[str, object]:
 
 
 @app.get("/api/audit", tags=["Audit"])
-async def audit_log(limit: int = 12) -> dict[str, object]:
+async def audit_log(request: Request, limit: int = 12) -> dict[str, object]:
+    """The calling tab's own journal; receipts expire after an hour."""
     bounded_limit = max(1, min(limit, 100))
-    items = recent_events(bounded_limit)
+    items = recent_events(bounded_limit, session=_session(request))
     return {"items": items, "total": len(items)}
 
 
@@ -330,6 +372,7 @@ async def evaluation_suite() -> dict[str, object]:
 @app.post("/api/sources/github-status/sync", tags=["Sources"])
 async def sync_github_status(request: Request) -> dict[str, object]:
     """Fetch a small public operational signal without making it a dependency of triage."""
+    _check_write_rate(request)
     snapshot = await asyncio.to_thread(github_status_snapshot)
     audit_event_id = record(
         "public_source_synced",
@@ -339,5 +382,6 @@ async def sync_github_status(request: Request) -> dict[str, object]:
             "ok": snapshot["ok"],
             "indicator": snapshot["indicator"],
         },
+        session=_session(request),
     )
     return {"snapshot": snapshot, "audit_event_id": audit_event_id}
