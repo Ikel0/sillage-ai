@@ -117,7 +117,7 @@
   const plural = (count, singular, pluralForm) => `${count} ${count > 1 ? pluralForm : singular}`;
 
   const severityTag = (severity) =>
-    `<strong class="tag${severity === "SEV-1" ? " tag--alert" : ""}">${escapeHtml(severity)}</strong>`;
+    `<span class="pill${severity === "SEV-1" ? " pill--alert" : ""}">${escapeHtml(severity)}</span>`;
 
   const fieldList = (rows) =>
     `<dl class="summary-list">${rows
@@ -127,10 +127,26 @@
 
   const sectionTitle = (num, text) => `<h3><span class="num">${num}</span>${text}</h3>`;
 
+  // Un jeton par onglet : le serveur range le journal de cet onglet à part et l'efface après une heure.
+  const sessionToken = (() => {
+    const fresh = () =>
+      window.crypto?.randomUUID?.() ||
+      Array.from({ length: 4 }, () => Math.random().toString(36).slice(2, 10)).join("-");
+    try {
+      const stored = window.sessionStorage.getItem("sillage-session");
+      if (stored && /^[A-Za-z0-9-]{16,64}$/.test(stored)) return stored;
+      const token = fresh();
+      window.sessionStorage.setItem("sillage-session", token);
+      return token;
+    } catch (_) {
+      return fresh();
+    }
+  })();
+
   async function api(path, options = {}) {
     const response = await fetch(path, {
       ...options,
-      headers: { Accept: "application/json", ...(options.headers || {}) },
+      headers: { Accept: "application/json", "X-Sillage-Session": sessionToken, ...(options.headers || {}) },
     });
     const contentType = response.headers.get("content-type") || "";
     const payload = contentType.includes("application/json") ? await response.json() : await response.text();
@@ -246,7 +262,7 @@
                   .map(
                     (signal, index) => `
                     <tr data-signal-row="${index}">
-                      <td class="keep-col"><div class="checkbox checkbox--small"><input class="checkbox-input" id="keep${index}" type="checkbox" data-signal-keep="${index}" checked /><label class="checkbox-label" for="keep${index}"><span class="visually-hidden">Retenir le signal ${escapeHtml(signal.name)}</span></label></div></td>
+                      <td class="keep-col"><label class="choice choice--bare"><input type="checkbox" data-signal-keep="${index}" checked /><span class="visually-hidden">Retenir le signal ${escapeHtml(signal.name)}</span></label></td>
                       <th scope="row">${escapeHtml(signal.name)}<span class="sub">${escapeHtml(label("kind", signal.kind))} · relevé le ${escapeHtml(formatDate(signal.observed_at))}</span></th>
                       <td class="observed"><input class="field input" type="text" maxlength="200" data-signal-value="${index}" value="${escapeHtml(signal.value)}" aria-label="Valeur observée : ${escapeHtml(signal.name)}" /></td>
                       <td>${escapeHtml(signal.threshold)}</td>
@@ -406,9 +422,9 @@
       list.innerHTML = '<p class="quiet small">Aucun symptôme de runbook dans le texte de la fiche.</p>';
       return;
     }
-    list.innerHTML = `<div class="checkboxes checkboxes--inline">${terms
+    list.innerHTML = `<div class="choices choices--inline">${terms
       .map(
-        (term, index) => `<div class="checkbox checkbox--small"><input class="checkbox-input" id="term${index}" type="checkbox" data-term="${escapeHtml(term)}"${state.scenario.excluded.has(term) ? "" : " checked"} /><label class="checkbox-label code" for="term${index}">${escapeHtml(term)}</label></div>`
+        (term) => `<label class="choice"><input type="checkbox" data-term="${escapeHtml(term)}"${state.scenario.excluded.has(term) ? "" : " checked"} /><span class="code">${escapeHtml(term)}</span></label>`
       )
       .join("")}</div>`;
     if (focused) list.querySelector(`[data-term="${CSS.escape(focused)}"]`)?.focus();
@@ -443,7 +459,7 @@
     const verdict = simulation.selected_runbook
       ? `${formatScore(simulation.match_score)} atteint le seuil de ${threshold} avec ${plural(terms.length, "symptôme commun", "symptômes communs")} : ${simulation.selected_runbook} retenu.`
       : `Sillage s'abstient (INSUFFICIENT_EVIDENCE) : ${abstentionReason(top, threshold)}.`;
-    const gate = `<strong class="tag${simulation.gate_state === "blocked" ? " tag--alert" : ""}">${escapeHtml(label("gate", simulation.gate_state))}</strong>`;
+    const gate = `<span class="${simulation.gate_state === "blocked" ? "is-critical strong" : ""}">${escapeHtml(label("gate", simulation.gate_state))}</span>`;
     const evaluationNote =
       isModified() && state.evaluation
         ? `<p class="small quiet">Les ${state.evaluation.passed} cas de référence validés portent sur les fiches d'origine ; ils ne valident pas ce scénario.</p>`
@@ -528,7 +544,7 @@
     elements.triageResult.hidden = false;
     setTriageState(`produit le ${formatDate(report.generated_at, { seconds: true })}`);
 
-    const gate = `<strong class="tag${report.gate_state === "blocked" ? " tag--alert" : ""}">${escapeHtml(label("gate", report.gate_state))}</strong>`;
+    const gate = `<span class="${report.gate_state === "blocked" ? "is-critical strong" : ""}">${escapeHtml(label("gate", report.gate_state))}</span>`;
     const runbook = provenance.runbook_id
       ? `<span class="code">${escapeHtml(provenance.runbook_id)}</span>, version ${escapeHtml(provenance.runbook_version)}`
       : "aucun runbook retenu";
@@ -629,19 +645,23 @@
   function clearDecisionError() {
     $("decisionErrors").hidden = true;
     $("outcomeError").hidden = true;
-    $("outcomeGroup").classList.remove("form-group--error");
+    $("outcomeFieldset").classList.remove("has-error");
+    $("outcomeFieldset").setAttribute("aria-describedby", "decisionHint");
+    $("outcomeFieldset").removeAttribute("aria-invalid");
   }
 
   function showDecisionError() {
     $("decisionErrors").hidden = false;
     $("outcomeError").hidden = false;
-    $("outcomeGroup").classList.add("form-group--error");
+    $("outcomeFieldset").classList.add("has-error");
+    $("outcomeFieldset").setAttribute("aria-describedby", "decisionHint outcomeError");
+    $("outcomeFieldset").setAttribute("aria-invalid", "true");
     $("decisionErrors").focus();
   }
 
-  function showRecordedDecision(outcome, recordedAt, receiptId, note) {
+  function showRecordedDecision(outcome, recordedAt, receiptId, noteHash) {
     elements.decisionTime.textContent = `${label("outcome", outcome)}, le ${formatDate(recordedAt, { seconds: true, year: true })}`;
-    elements.decisionReceipt.textContent = `n° ${receiptId}${note ? ` · « ${note} »` : ""}`;
+    elements.decisionReceipt.textContent = `n° ${receiptId}${noteHash ? ` · note jointe, empreinte ${noteHash.slice(0, 12)}` : ""}`;
   }
 
   async function loadLastDecision(id) {
@@ -649,7 +669,7 @@
       const { items } = await api(`/api/incidents/${encodeURIComponent(id)}/reviews?limit=1`);
       const last = (items || [])[0];
       if (last && state.selectedId === id) {
-        showRecordedDecision(last.payload?.outcome, last.occurred_at, last.id, last.payload?.note);
+        showRecordedDecision(last.payload?.outcome, last.occurred_at, last.id, last.payload?.note_sha256);
         elements.decisionHint.textContent =
           "Une décision a déjà été enregistrée pour cet incident. Produisez un nouveau triage pour en consigner une autre.";
       }
@@ -666,41 +686,57 @@
       return `${payload.decision_code || ""}${payload.runbook?.id ? ` · ${payload.runbook.id}` : " · aucun runbook retenu"}`;
     }
     if (event.event_type === "operator_review_recorded") {
-      return `${label("outcome", payload.outcome)}${payload.note ? ` · « ${payload.note} »` : ""}`;
+      return `${label("outcome", payload.outcome)}${payload.note_sha256 ? ` · note jointe, empreinte ${payload.note_sha256.slice(0, 12)}` : ""}`;
     }
     if (event.event_type === "public_source_synced") return label("indicator", payload.indicator);
     return "";
   }
 
+  function cell(tag, text, className) {
+    const element = document.createElement(tag);
+    element.textContent = text;
+    if (className) element.className = className;
+    return element;
+  }
+
   function renderAudit(payload) {
     const events = payload.items || [];
     if (!events.length) {
-      elements.auditList.innerHTML =
-        '<p class="quiet">Journal vide. Le prochain triage, la prochaine décision ou synchronisation y laissera un reçu.</p>';
+      elements.auditList.replaceChildren(
+        cell("p", "Journal vide pour cet onglet. Le prochain triage, la prochaine décision ou synchronisation y laissera un reçu.", "quiet")
+      );
       return;
     }
-    elements.auditList.innerHTML = `<div class="table-wrap"><table class="grid journal-table">
-      <thead><tr><th scope="col" class="num-col">Reçu</th><th scope="col">Heure</th><th scope="col">Événement</th><th scope="col">Incident</th><th scope="col">Détail</th></tr></thead>
-      <tbody>${events
-        .map(
-          (event) => `
-          <tr>
-            <td class="num-col">${escapeHtml(event.id)}</td>
-            <td class="nowrap nums">${escapeHtml(formatDate(event.occurred_at, { seconds: true }))}</td>
-            <td>${escapeHtml(label("event", event.event_type))}</td>
-            <td class="code nowrap">${escapeHtml(event.incident_id || "—")}</td>
-            <td>${escapeHtml(describeAuditEvent(event))}</td>
-          </tr>`
-        )
-        .join("")}</tbody>
-    </table></div>`;
+    const table = document.createElement("table");
+    table.className = "grid journal-table";
+    const head = table.createTHead().insertRow();
+    [["Reçu", "num-col"], ["Heure"], ["Événement"], ["Incident"], ["Détail"]].forEach(([text, className]) => {
+      const th = cell("th", text, className);
+      th.scope = "col";
+      head.append(th);
+    });
+    const body = table.createTBody();
+    for (const event of events) {
+      const row = body.insertRow();
+      row.append(
+        cell("td", String(event.id), "num-col"),
+        cell("td", formatDate(event.occurred_at, { seconds: true }), "nowrap nums"),
+        cell("td", label("event", event.event_type)),
+        cell("td", event.incident_id || "—", "code nowrap"),
+        cell("td", describeAuditEvent(event))
+      );
+    }
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    wrap.append(table);
+    elements.auditList.replaceChildren(wrap);
   }
 
   async function loadAudit() {
     try {
       renderAudit(await api("/api/audit"));
     } catch (error) {
-      elements.auditList.innerHTML = `<p class="is-error">Journal indisponible : ${escapeHtml(error.message)}</p>`;
+      elements.auditList.replaceChildren(cell("p", `Journal indisponible : ${error.message}`, "is-error"));
     }
   }
 
@@ -792,7 +828,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      showRecordedDecision(review.outcome, review.recorded_at, review.review_id, review.note);
+      showRecordedDecision(review.outcome, review.recorded_at, review.review_id, review.note_sha256);
       feedback.textContent = "Décision consignée au journal. Aucune action n'a été déclenchée.";
       await loadAudit();
     } catch (error) {

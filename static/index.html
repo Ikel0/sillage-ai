@@ -8,7 +8,7 @@
       content="Sillage rapproche un incident data de son contrat et du runbook le plus proche, puis propose un triage qu'une personne accepte, conteste ou rejette."
     />
     <title>Sillage · fiches d'incidents data</title>
-    <link rel="stylesheet" href="/assets/app.css?v=0.6.0" />
+    <link rel="stylesheet" href="/assets/app.css?v=0.7.0" />
   </head>
   <body>
     <a class="skip-link" href="#fiche">Aller à la fiche d'incident</a>
@@ -46,10 +46,10 @@
           </div>
           <fieldset class="filters">
             <legend class="visually-hidden">Filtrer la file par sévérité</legend>
-            <div class="radios radios--small radios--inline">
-              <div class="radio"><input class="radio-input" id="filterAll" type="radio" name="sevFilter" value="all" checked /><label class="radio-label" for="filterAll">Tous</label></div>
-              <div class="radio"><input class="radio-input" id="filterSev1" type="radio" name="sevFilter" value="SEV-1" /><label class="radio-label" for="filterSev1">SEV-1</label></div>
-              <div class="radio"><input class="radio-input" id="filterSev2" type="radio" name="sevFilter" value="SEV-2" /><label class="radio-label" for="filterSev2">SEV-2</label></div>
+            <div class="choices choices--inline">
+              <label class="choice"><input type="radio" name="sevFilter" value="all" checked /><span>Tous</span></label>
+              <label class="choice"><input type="radio" name="sevFilter" value="SEV-1" /><span>SEV-1</span></label>
+              <label class="choice"><input type="radio" name="sevFilter" value="SEV-2" /><span>SEV-2</span></label>
             </div>
           </fieldset>
           <div id="incidentList" aria-live="polite">
@@ -108,26 +108,25 @@
 
               <section class="decision" id="decision" aria-labelledby="decision-title" hidden>
                 <h3 id="decision-title"><span class="num">8</span>Décision</h3>
-                <div class="error-summary" id="decisionErrors" role="alert" tabindex="-1" hidden>
-                  <h4>Il manque une réponse</h4>
-                  <p><a href="#outcomeAccepted">Choisissez ce que vous faites de ce triage</a></p>
-                </div>
+                <p class="error-summary" id="decisionErrors" role="alert" tabindex="-1" hidden>
+                  Il manque une réponse : <a href="#outcomeAccepted">choisissez ce que vous faites de ce triage</a>.
+                </p>
                 <form id="decisionForm" novalidate>
-                  <div class="form-group" id="outcomeGroup">
-                    <fieldset aria-describedby="decisionHint">
+                  <div class="form-group">
+                    <fieldset class="choice-group" id="outcomeFieldset" aria-describedby="decisionHint">
                       <legend class="legend">Que faites-vous de ce triage ?</legend>
                       <p class="hint" id="decisionHint">Produisez le triage avant de décider. Votre décision est consignée au journal ; elle ne déclenche aucune action.</p>
-                      <p class="field-error" id="outcomeError" hidden>Choisissez ce que vous faites de ce triage</p>
-                      <div class="radios">
-                        <div class="radio"><input class="radio-input" id="outcomeAccepted" type="radio" name="outcome" value="accepted" disabled /><label class="radio-label" for="outcomeAccepted">Accepter le triage</label></div>
-                        <div class="radio"><input class="radio-input" id="outcomeEvidence" type="radio" name="outcome" value="needs_evidence" disabled /><label class="radio-label" for="outcomeEvidence">Demander des éléments</label></div>
-                        <div class="radio"><input class="radio-input" id="outcomeRejected" type="radio" name="outcome" value="rejected" disabled /><label class="radio-label" for="outcomeRejected">Rejeter la proposition</label></div>
+                      <div class="choices">
+                        <label class="choice"><input id="outcomeAccepted" type="radio" name="outcome" value="accepted" disabled /><span>Accepter le triage</span></label>
+                        <label class="choice"><input type="radio" name="outcome" value="needs_evidence" disabled /><span>Demander des éléments</span></label>
+                        <label class="choice"><input type="radio" name="outcome" value="rejected" disabled /><span>Rejeter la proposition</span></label>
                       </div>
                     </fieldset>
+                    <p class="field-error" id="outcomeError" hidden>Choisissez ce que vous faites de ce triage.</p>
                   </div>
                   <div class="form-group">
                     <label class="label" for="reviewNote">Note de revue (facultative)</label>
-                    <p class="hint" id="reviewNoteHint">Ce que vous avez vérifié, contesté ou transmis. 420 caractères au plus.</p>
+                    <p class="hint" id="reviewNoteHint">Ce que vous avez vérifié, contesté ou transmis, 420 caractères au plus. Le journal n'en garde que l'empreinte, jamais le texte.</p>
                     <textarea class="field textarea" id="reviewNote" rows="3" maxlength="420" aria-describedby="reviewNoteHint"></textarea>
                   </div>
                   <button class="button" id="submitDecision" type="submit" disabled>Enregistrer la décision</button>
@@ -149,7 +148,7 @@
           <h2 id="audit-title">Journal de décision</h2>
           <button class="link-button" id="refreshAudit" type="button">Actualiser</button>
         </div>
-        <p class="quiet small">Les recalculs d'un scénario modifié n'y figurent pas. Chaque triage, revue ou synchronisation laisse un reçu chaîné par empreinte dans une base SQLite locale.</p>
+        <p class="quiet small">Ce journal n'appartient qu'à cet onglet et s'efface au bout d'une heure. Chaque triage, décision ou synchronisation y laisse un reçu chaîné par empreinte ; une note n'y figure que par son empreinte, et les recalculs d'un scénario modifié n'y figurent pas.</p>
         <div id="auditList" aria-live="polite">
           <p class="quiet">Chargement du journal…</p>
         </div>
@@ -182,6 +181,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/assets/app.js?v=0.6.0" defer></script>
+    <script src="/assets/app.js?v=0.7.0" defer></script>
   </body>
 </html>

@@ -2,7 +2,7 @@
   Sillage suit l'ordre d'une fiche d'incident (identification, signaux, contrat,
   calcul, triage, décision) et reprend des conventions de formulaires publics
   éprouvées : libellé au-dessus du champ, aide sous le libellé, une question par
-  bloc, résumé d'erreur en tête avec lien vers le champ, gros boutons radio,
+  bloc, ligne d'erreur en tête avec lien vers le champ, message sous le groupe,
   bouton qui nomme l'action. Police système (Arial), aucune police téléchargée.
   Le rouge ne marque que SEV-1, la publication bloquée et les erreurs ;
   le bleu ardoise est la couleur d'action (liens, bouton principal).
@@ -38,7 +38,9 @@ body {
 }
 
 h1, h2, h3, h4, p, ul, ol, dl, dd { margin-top: 0; }
-h1, h2, h3, h4, strong, b, th { font-weight: 700; }
+h1, h2, h3, h4, strong, b { font-weight: 700; }
+th { font-weight: 400; }
+thead th { color: var(--muted); }
 
 button, input, textarea, select { font: inherit; color: inherit; }
 
@@ -127,10 +129,8 @@ a:hover, .link-button:hover { color: var(--action-dark); text-decoration-thickne
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: var(--ink);
   font-size: 1rem;
 }
-.back-link:hover { color: var(--ink); }
 
 .identity { display: flex; align-items: baseline; gap: 16px; margin: 4px 0 14px; }
 .identity h1 { flex: none; margin: 0; font-size: 2rem; line-height: 1.1; }
@@ -170,7 +170,7 @@ a:hover, .link-button:hover { color: var(--action-dark); text-decoration-thickne
 .queue-head p { margin: 2px 0 0; color: var(--muted); font-size: 1rem; }
 
 .filters { margin: 8px 0 6px; padding: 0; border: 0; }
-.filters .radios--inline { gap: 0 6px; flex-wrap: nowrap; }
+.filters .choices--inline { gap: 0 16px; }
 
 .queue-list { margin: 0 0 10px; padding: 0; list-style: none; border-top: 1px solid var(--line); }
 .queue-item {
@@ -191,23 +191,24 @@ a:hover, .link-button:hover { color: var(--action-dark); text-decoration-thickne
 .queue-item[aria-current="true"] .queue-title { color: var(--ink); font-weight: 700; text-decoration: none; }
 .queue-time { color: var(--muted); font-size: 1rem; font-variant-numeric: tabular-nums; }
 
-.tag {
+.pill {
   display: inline-block;
-  padding: 2px 8px 1px;
-  background: #e8eaeb;
-  color: #2e3539;
-  font-size: 1rem;
-  font-weight: 700;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
   white-space: nowrap;
 }
-.tag--alert { background: var(--alert-tint); color: #8c1d16; }
+.pill--alert { border-color: var(--alert); color: var(--alert); }
 
 /* Fiche */
 
 .fiche:focus { outline: none; }
 
 .fiche-head { padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-.fiche-ref .tag { vertical-align: 2px; }
+.fiche-ref .pill { vertical-align: 2px; }
 .fiche-ref { margin-bottom: 6px; color: var(--muted); font-size: 1.1875rem; }
 .fiche-title { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
 .fiche-head h2 { margin: 0; font-size: 2rem; line-height: 1.15; }
@@ -239,7 +240,7 @@ h4 { margin: 22px 0 6px; font-size: 1.1875rem; }
   padding: 9px 0;
   border-bottom: 1px solid var(--line);
 }
-.summary-list dt { font-weight: 700; }
+.summary-list dt { color: var(--muted); }
 .summary-list dd { margin: 0; overflow-wrap: anywhere; }
 
 /* Champs */
@@ -267,102 +268,38 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .input:disabled { color: var(--muted); background: var(--tint); border-color: var(--line); }
 .textarea { display: block; width: 100%; resize: vertical; }
 
-/* Cases et boutons radio larges */
+/* Cases et boutons radio natifs, zone cliquable de 44 px */
 
-.radio, .checkbox {
-  position: relative;
-  display: flex;
-  min-height: 40px;
-  margin-bottom: 10px;
-  padding-left: 40px;
-}
-.radio-input, .checkbox-input {
-  position: absolute;
-  z-index: 1;
-  top: -2px;
-  left: -2px;
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.radio-label, .checkbox-label {
-  display: inline-block;
-  padding: 8px 14px 5px;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-.radio-label::before, .checkbox-label::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 40px;
-  height: 40px;
-  border: 2px solid currentColor;
-  background: var(--bg);
-}
-.radio-label::before { border-radius: 50%; }
-.radio-label::after {
-  content: "";
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  width: 0;
-  height: 0;
-  border: 10px solid currentColor;
-  border-radius: 50%;
-  opacity: 0;
-}
-.checkbox-label::after {
-  content: "";
-  position: absolute;
-  top: 11px;
-  left: 9px;
-  width: 23px;
-  height: 12px;
-  border: solid;
-  border-width: 0 0 5px 5px;
-  border-top-color: transparent;
-  transform: rotate(-45deg);
-  opacity: 0;
-}
-.radio-input:checked + .radio-label::after,
-.checkbox-input:checked + .checkbox-label::after { opacity: 1; }
-.radio-input:focus-visible + .radio-label::before,
-.checkbox-input:focus-visible + .checkbox-label::before { border-width: 4px; outline: 3px solid var(--action); outline-offset: 1px; }
-.radio-input:disabled, .checkbox-input:disabled { cursor: not-allowed; }
-.radio-input:disabled + .radio-label, .checkbox-input:disabled + .checkbox-label { opacity: 0.5; cursor: not-allowed; }
-
-/* Variante petite : case de 24 px, zone cliquable de 44 px */
-
-.radios--small .radio, .checkbox--small {
+.choices { display: grid; gap: 0; }
+.choices--inline { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.choice {
+  display: inline-flex;
   align-items: center;
+  gap: 10px;
   min-height: 44px;
-  margin-bottom: 0;
-  padding-left: 34px;
+  cursor: pointer;
 }
-.radios--small .radio-input, .checkbox--small .checkbox-input { top: 0; left: -10px; }
-.radios--small .radio-label, .checkbox--small .checkbox-label { padding: 0 12px 0 0; }
-.radios--small .radio-label::before, .checkbox--small .checkbox-label::before { top: 10px; width: 24px; height: 24px; }
-.radios--small .radio-label::after { top: 17px; left: 7px; border-width: 5px; }
-.checkbox--small .checkbox-label::after { top: 16px; left: 6px; width: 12px; height: 6.5px; border-width: 0 0 3px 3px; }
-.radios--inline, .checkboxes--inline { display: flex; flex-wrap: wrap; gap: 0 20px; }
-
-/* Erreurs */
-
-.error-summary {
-  margin-bottom: 24px;
-  padding: 16px 18px;
-  border: 4px solid var(--alert);
+.choice input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--action);
+  cursor: pointer;
 }
-.error-summary:focus { outline: 3px solid var(--action); outline-offset: 0; }
-.error-summary h4 { margin: 0 0 8px; font-size: 1.25rem; }
-.error-summary p { margin: 0; }
-.error-summary a { color: var(--alert); font-weight: 700; }
-.form-group--error { padding-left: 14px; border-left: 5px solid var(--alert); }
-.field-error { margin: 0 0 10px; color: var(--alert); font-weight: 700; }
+.choice input:disabled { cursor: not-allowed; }
+.choice:has(input:disabled) { color: var(--muted); cursor: not-allowed; }
+.choice--bare { justify-content: center; min-width: 44px; }
+.choice input:focus-visible { outline: 3px solid var(--action); outline-offset: 2px; }
+
+/* Erreurs : une ligne en tête avec lien, le message sous le groupe concerné */
+
+.error-summary { margin: 0 0 18px; color: var(--alert); font-size: 1rem; }
+.error-summary:focus { outline: 2px solid var(--action); outline-offset: 4px; }
+.error-summary a { color: var(--alert); }
+.choice-group { padding: 4px 12px 6px; border: 1px solid transparent; border-radius: 3px; margin: 0 -13px; }
+.choice-group.has-error { border-color: var(--alert); }
+.field-error { margin: 6px 0 0; color: var(--alert); font-size: 1rem; }
 
 /* Scénario modifiable */
 
@@ -370,12 +307,11 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 
 .keep-col { width: 44px; padding-right: 8px !important; }
 .signals td, .signals th { vertical-align: middle; }
-.signals .checkbox--small { padding-left: 24px; }
 .signals tr.is-dropped th, .signals tr.is-dropped td:last-child { color: var(--muted); text-decoration: line-through; }
 
 .terms { margin: 22px 0 0; }
-.checkbox-label.code { font-size: 1rem; }
-.checkbox-input:not(:checked) + .checkbox-label.code { color: var(--muted); text-decoration: line-through; }
+.choice .code { font-size: 1rem; }
+.choice:has(input[type=checkbox]:not(:checked)) .code { color: var(--muted); text-decoration: line-through; }
 
 .changed-tag { margin-left: 8px; color: var(--muted); font-size: 1rem; font-weight: 400; }
 
@@ -394,7 +330,7 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .scenario-banner .link-button { min-height: 44px; }
 
 .scenario-state { margin: 0 0 6px; color: var(--muted); font-size: 1rem; }
-.scenario-state.is-modified { color: var(--ink); font-weight: 700; }
+.scenario-state.is-modified { color: var(--ink); }
 
 .inset-text { margin: 14px 0; padding: 12px 16px; border-left: 8px solid var(--line); font-size: 1rem; }
 
@@ -428,7 +364,7 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .grid tbody th { font-weight: 400; }
 .grid .num-col { text-align: right; }
 .sub { display: block; margin-top: 2px; color: var(--muted); font-size: 0.875rem; }
-.signals .observed { font-weight: 700; }
+
 
 .plain-list { margin: 0; padding-left: 20px; font-size: 1.0625rem; }
 .plain-list li + li { margin-top: 6px; }
@@ -561,9 +497,10 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 }
 
 /* Ajustements de densité */
-.filters .radio-label { padding-right: 0; }
 .signals .observed { width: 46%; }
 .signals .sub { font-size: 0.8125rem; }
 @media (max-width: 640px) {
   .signals .observed { width: auto; }
 }
+.choice-group > legend { float: left; width: 100%; padding-top: 6px; }
+.choice-group > legend + * { clear: both; }
