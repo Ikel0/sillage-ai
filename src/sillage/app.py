@@ -81,10 +81,14 @@ _simulation_calls: dict[str, deque[float]] = defaultdict(deque)
 
 
 def _client_ip(request: Request) -> str:
+    # Même lecture que Pacte et Routier : l'adresse du visiteur posée par le proxy
+    # (True-Client-IP), sinon la première de X-Forwarded-For, sinon la connexion.
+    true_client = request.headers.get("True-Client-IP", "").strip()
+    if true_client:
+        return true_client
     forwarded = request.headers.get("X-Forwarded-For", "")
-    if forwarded:
-        # Render appends the address it saw last; earlier entries are client-supplied.
-        return forwarded.split(",")[-1].strip()
+    if forwarded.strip():
+        return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
 
