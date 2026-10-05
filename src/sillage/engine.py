@@ -80,8 +80,10 @@ def _incident_text(incident: dict[str, Any]) -> str:
     return f"{incident['title']} {incident['summary']} {signal_text}"
 
 
-def _rank_runbook(incident: dict[str, Any], runbook: dict[str, Any]) -> dict[str, Any]:
-    incident_terms = _tokens(_incident_text(incident))
+def _rank_runbook(
+    incident: dict[str, Any], runbook: dict[str, Any], excluded_terms: frozenset[str] = frozenset()
+) -> dict[str, Any]:
+    incident_terms = _tokens(_incident_text(incident)) - excluded_terms
     symptom_terms = {str(term).lower() for term in runbook["symptoms"]}
     matched_terms = sorted(incident_terms & symptom_terms)
     lexical_overlap = len(matched_terms) / max(len(symptom_terms), 1)
@@ -357,3 +359,42 @@ def build_triage_report(incident: dict[str, Any]) -> TriageReport:
             "registry_fingerprint": registry["registry_fingerprint"],
         },
     )
+
+
+def simulate_routing(incident: dict[str, Any], excluded_terms: set[str] | frozenset[str] = frozenset()) -> dict[str, Any]:
+    """Re-run the routing score on an edited copy of an incident, without side effects.
+
+    Uses the same scoring and abstention rules as build_triage_report, but builds no
+    evidence bundle and no provenance: a simulation is never a triage of record.
+    ``excluded_terms`` lets an operator set aside a symptom found in the text.
+    """
+
+    if contract_by_id(incident["contract_id"]) is None:
+        raise LookupError(f"No contract found for {incident['contract_id']}")
+    excluded = frozenset(term.lower() for term in excluded_terms)
+    incident_terms = _tokens(_incident_text(incident))
+    known_symptoms = {str(term).lower() for runbook in runbooks() for term in runbook["symptoms"]}
+    ranked = sorted(
+        (_rank_runbook(incident, runbook, excluded) for runbook in runbooks()),
+        key=lambda item: item["score"],
+        reverse=True,
+    )
+    if not ranked:
+        raise LookupError("No runbooks available for routing")
+    top = ranked[0]
+    grounded = top["eligible"]
+    decision_code, gate_state, decision = _decision(incident, grounded)
+    return {
+        "decision_code": decision_code,
+        "decision": decision,
+        "gate_state": gate_state,
+        "match_score": top["score"],
+        "minimum_routing_score": MINIMUM_ROUTING_SCORE,
+        "policy_version": TRIAGE_POLICY_VERSION,
+        "selected_runbook": top["runbook_id"] if grounded else None,
+        "severity": incident["severity"],
+        "contract_id": incident["contract_id"],
+        "detected_terms": sorted(incident_terms & known_symptoms),
+        "excluded_terms": sorted(excluded & known_symptoms),
+        "candidates": ranked,
+    }

@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from .audit import event_by_id, recent_events, record
-from .engine import build_triage_report
+from .engine import build_triage_report, simulate_routing
 from .evaluation import evaluate_grounded_triage
 from .narrative import compose_grounded_narrative
 from .repository import (
@@ -54,6 +56,48 @@ class ReviewInput(BaseModel):
     outcome: Literal["accepted", "needs_evidence", "rejected"]
     note: str = Field(default="", max_length=420)
     trace_id: str | None = Field(default=None, max_length=96)
+
+
+class SignalEdit(BaseModel):
+    index: int = Field(ge=0, lt=32)
+    value: str = Field(max_length=200)
+    included: bool = True
+
+
+class SimulationInput(BaseModel):
+    severity: Literal["SEV-1", "SEV-2", "SEV-3"] | None = None
+    contract_id: str | None = Field(default=None, max_length=96)
+    signals: list[SignalEdit] = Field(default_factory=list, max_length=32)
+    excluded_terms: list[Annotated[str, Field(max_length=40)]] = Field(default_factory=list, max_length=32)
+
+
+# The public demo runs as one shared instance. A simulation is stateless (the
+# visitor's edits travel with each request and nothing is stored), so visitors
+# never see each other's scenarios; the limits below only bound the cost.
+SIMULATION_MAX_BODY_BYTES = 16_384
+SIMULATION_RATE_LIMIT = 90
+SIMULATION_RATE_WINDOW_SECONDS = 60.0
+_simulation_calls: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        # Render appends the address it saw last; earlier entries are client-supplied.
+        return forwarded.split(",")[-1].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_simulation_rate(request: Request) -> None:
+    now = time.monotonic()
+    if len(_simulation_calls) > 5_000:
+        _simulation_calls.clear()
+    calls = _simulation_calls[_client_ip(request)]
+    while calls and now - calls[0] > SIMULATION_RATE_WINDOW_SECONDS:
+        calls.popleft()
+    if len(calls) >= SIMULATION_RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Trop de recalculs en une minute ; réessayez dans un instant.")
+    calls.append(now)
 
 
 @app.middleware("http")
@@ -180,6 +224,41 @@ async def analyze_incident(incident_id: str, request: Request) -> dict[str, obje
             "trace_id": report.provenance["trace_id"],
         },
     }
+
+
+@app.post("/api/incidents/{incident_id}/simulate", tags=["Triage"])
+async def simulate_incident(incident_id: str, request: Request) -> dict[str, object]:
+    """Recompute the routing score on an edited copy of the incident.
+
+    Nothing is written: no audit event, no change to the registry. A simulation
+    cannot be reviewed; only a triage produced by /analyze can.
+    """
+    _check_simulation_rate(request)
+    body = await request.body()
+    if len(body) > SIMULATION_MAX_BODY_BYTES:
+        raise HTTPException(status_code=413, detail="Scénario trop volumineux")
+    try:
+        edits = SimulationInput.model_validate_json(body or b"{}")
+    except ValidationError as error:
+        raise HTTPException(status_code=422, detail="Scénario invalide") from error
+    incident = _get_incident_or_404(incident_id)
+    edited = {**incident, "signals": [dict(signal) for signal in incident["signals"]]}
+    if edits.severity:
+        edited["severity"] = edits.severity
+    if edits.contract_id:
+        if contract_by_id(edits.contract_id) is None:
+            raise HTTPException(status_code=422, detail=f"Contrat {edits.contract_id} inconnu")
+        edited["contract_id"] = edits.contract_id
+    excluded_signals: set[int] = set()
+    for edit in edits.signals:
+        if edit.index >= len(edited["signals"]):
+            raise HTTPException(status_code=422, detail=f"Signal n° {edit.index} absent de l'incident")
+        edited["signals"][edit.index]["value"] = edit.value
+        if not edit.included:
+            excluded_signals.add(edit.index)
+    edited["signals"] = [signal for index, signal in enumerate(edited["signals"]) if index not in excluded_signals]
+    simulation = simulate_routing(edited, set(edits.excluded_terms))
+    return {"simulation": simulation, "meta": {"recorded": False, "automated_action": False}}
 
 
 @app.post("/api/incidents/{incident_id}/reviews", tags=["Review"])
