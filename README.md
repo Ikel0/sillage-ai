@@ -4,9 +4,9 @@ Sillage relie un incident data à son contrat de données, au runbook pertinent 
 
 Sillage ne relance aucune donnée, ne modifie ni contrôle qualité ni contrat et ne notifie personne. La décision reste à l'équipe responsable.
 
-![Interface de Sillage : file de trois incidents à gauche, fiche INC-2407 (doublons dans le mart revenus) avec identification, signaux observés et triage proposé, dont le calcul du score de correspondance](docs/demo.png)
+![Interface de Sillage : file de trois incidents à gauche, fiche INC-2407 (doublons dans le mart revenus) avec ses champs modifiables et, à droite, le calcul du score de correspondance](docs/demo.png)
 
-La capture montre la fiche INC-2407 après triage : proposition « contenir la publication », publication bloquée, et le calcul posé du score, contrat 0,64 + symptômes 0,15 + sévérité 0,16 = 0,95 pour un seuil de 0,80. Plus bas, la fiche se termine par la décision humaine (accepter, demander des éléments, rejeter), signée « vous (démo) » et horodatée par le journal.
+La capture montre la fiche INC-2407 à l'ouverture : le score est posé comme une addition, contrat 0,64 + symptômes 0,15 + sévérité 0,16 = 0,95 pour un seuil de 0,80. On peut changer la sévérité, le contrat rattaché ou la valeur d'un signal, écarter un signal ou un symptôme : le moteur recalcule l'addition terme par terme, le runbook retenu peut changer, et sous le seuil (ou sans symptôme commun) Sillage s'abstient avec `INSUFFICIENT_EVIDENCE`. Ce scénario n'est ni enregistré ni partagé ; « Réinitialiser » revient à la fiche d'origine. Le triage et la décision humaine (accepter, demander des éléments, rejeter) portent toujours sur la fiche enregistrée.
 
 ## Pourquoi
 
@@ -68,6 +68,7 @@ docker run --rm -p 10000:10000 -e PORT=10000 sillage-ai
 | `GET` | `/api/incidents` | File d'incidents |
 | `GET` | `/api/incidents/{id}` | Incident et contrat qui le gouverne |
 | `POST` | `/api/incidents/{id}/analyze` | Triage, sans action corrective |
+| `POST` | `/api/incidents/{id}/simulate` | Recalcule le score sur une fiche modifiée ; n'écrit rien |
 | `POST` | `/api/incidents/{id}/reviews` | Enregistre une décision humaine, n'exécute rien |
 | `GET` | `/api/incidents/{id}/reviews` | Reçus de revue d'un incident |
 | `GET` | `/api/contracts` | Catalogue des contrats de données |
@@ -76,6 +77,8 @@ docker run --rm -p 10000:10000 -e PORT=10000 sillage-ai
 | `POST` | `/api/sources/github-status/sync` | Statut public GitHub, facultatif |
 
 Chaque réponse porte un en-tête `X-Request-ID` pour relier une observation à une requête.
+
+La simulation est sans état : les modifications du visiteur voyagent avec chaque requête et ne sont jamais stockées, si bien qu'un visiteur ne voit jamais le scénario d'un autre sur l'instance publique. Le corps est limité à 16 Ko, chaque valeur à 200 caractères, et le débit à 90 recalculs par minute et par adresse.
 
 ## Comment un triage est construit
 
