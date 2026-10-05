@@ -56,7 +56,7 @@
     triageResult: $("triageResult"),
     triageState: $("triageState"),
   };
-  const choiceButtons = () => [...elements.decision.querySelectorAll("[data-review-outcome]")];
+  const choiceButtons = () => [...elements.decision.querySelectorAll('input[name="outcome"]'), $("submitDecision")];
 
   const severityOrder = { "SEV-1": 1, "SEV-2": 2, "SEV-3": 3 };
   const closedStatuses = new Set(["resolved", "closed"]);
@@ -117,10 +117,10 @@
   const plural = (count, singular, pluralForm) => `${count} ${count > 1 ? pluralForm : singular}`;
 
   const severityTag = (severity) =>
-    `<span class="sev${severity === "SEV-1" ? " is-critical" : ""}">${escapeHtml(severity)}</span>`;
+    `<strong class="tag${severity === "SEV-1" ? " tag--alert" : ""}">${escapeHtml(severity)}</strong>`;
 
   const fieldList = (rows) =>
-    `<dl class="form-fields">${rows
+    `<dl class="summary-list">${rows
       .filter(([, value]) => value !== undefined && value !== null && value !== "")
       .map(([name, value]) => `<div><dt>${name}</dt><dd>${value}</dd></div>`)
       .join("")}</dl>`;
@@ -182,7 +182,7 @@
         const selected = incident.id === state.selectedId;
         return `
           <li>
-            <button class="queue-item${selected ? " is-selected" : ""}" type="button" data-incident-id="${escapeHtml(incident.id)}" aria-pressed="${selected}">
+            <button class="queue-item${selected ? " is-selected" : ""}" type="button" data-incident-id="${escapeHtml(incident.id)}" ${selected ? ' aria-current="true"' : ""}>
               <span class="queue-line"><span class="code">${escapeHtml(incident.id)}</span>${severityTag(incident.severity)}<span class="queue-status">${escapeHtml(label("status", incident.status))}</span></span>
               <span class="queue-title">${escapeHtml(incident.title)}</span>
               <span class="queue-time">ouvert le ${escapeHtml(formatDate(incident.opened_at))}</span>
@@ -196,7 +196,7 @@
 
   function renderCase({ incident, contract }) {
     elements.caseReference.textContent = incident.id;
-    elements.caseStatus.textContent = label("status", incident.status);
+    elements.caseStatus.innerHTML = `${severityTag(incident.severity)} · ${escapeHtml(label("status", incident.status))}`;
     elements.caseActions.hidden = false;
     elements.decision.hidden = false;
 
@@ -212,25 +212,29 @@
     elements.caseContent.innerHTML = `<h2 id="case-title">${escapeHtml(incident.title)}</h2>`;
 
     elements.caseFacts.innerHTML = `
-      <p class="edit-hint small quiet">Les champs encadrés sont modifiables : le score se recalcule avec le moteur de Sillage, sans rien enregistrer.</p>
+      <p class="hint edit-hint">Sévérité, contrat, signaux et symptômes sont modifiables : le score de la section 6 se recalcule avec le moteur de Sillage, sans rien enregistrer.</p>
       <section>
         ${sectionTitle(1, "Identification")}
         ${fieldList([
-          [
-            '<label for="scSeverity">Sévérité</label>',
-            `<select class="field" id="scSeverity">${severities
-              .map((sev) => `<option value="${sev}"${sev === incident.severity ? " selected" : ""}>${sev}</option>`)
-              .join("")}</select>`,
-          ],
           ["Ouvert le", `<span class="nums">${escapeHtml(formatDate(incident.opened_at, { year: true }))}</span>`],
-          [
-            '<label for="scContract">Contrat rattaché</label>',
-            `<select class="field code" id="scContract">${contractIds
-              .map((id) => `<option value="${escapeHtml(id)}"${id === incident.contract_id ? " selected" : ""}>${escapeHtml(id)}</option>`)
-              .join("")}</select>`,
-          ],
           ["Constat", escapeHtml(incident.summary)],
         ])}
+        <div class="form-row">
+          <div class="form-group">
+            <label class="label" for="scSeverity">Sévérité</label>
+            <p class="hint" id="scSeverityHint">Change le poids de sévérité dans le score.</p>
+            <select class="field select" id="scSeverity" aria-describedby="scSeverityHint">${severities
+              .map((sev) => `<option value="${sev}"${sev === incident.severity ? " selected" : ""}>${sev}</option>`)
+              .join("")}</select>
+          </div>
+          <div class="form-group">
+            <label class="label" for="scContract">Contrat rattaché</label>
+            <p class="hint" id="scContractHint">Un runbook ne peut être retenu que s'il porte sur ce contrat.</p>
+            <select class="field select code" id="scContract" aria-describedby="scContractHint">${contractIds
+              .map((id) => `<option value="${escapeHtml(id)}"${id === incident.contract_id ? " selected" : ""}>${escapeHtml(id)}</option>`)
+              .join("")}</select>
+          </div>
+        </div>
       </section>
       <section>
         ${sectionTitle(2, "Signaux observés")}
@@ -242,9 +246,9 @@
                   .map(
                     (signal, index) => `
                     <tr data-signal-row="${index}">
-                      <td class="keep-col"><label class="check-target"><input type="checkbox" data-signal-keep="${index}" checked aria-label="Retenir le signal ${escapeHtml(signal.name)}" /></label></td>
+                      <td class="keep-col"><div class="checkbox checkbox--small"><input class="checkbox-input" id="keep${index}" type="checkbox" data-signal-keep="${index}" checked /><label class="checkbox-label" for="keep${index}"><span class="visually-hidden">Retenir le signal ${escapeHtml(signal.name)}</span></label></div></td>
                       <th scope="row">${escapeHtml(signal.name)}<span class="sub">${escapeHtml(label("kind", signal.kind))} · relevé le ${escapeHtml(formatDate(signal.observed_at))}</span></th>
-                      <td class="observed"><input class="field" type="text" maxlength="200" data-signal-value="${index}" value="${escapeHtml(signal.value)}" aria-label="Valeur observée : ${escapeHtml(signal.name)}" /></td>
+                      <td class="observed"><input class="field input" type="text" maxlength="200" data-signal-value="${index}" value="${escapeHtml(signal.value)}" aria-label="Valeur observée : ${escapeHtml(signal.name)}" /></td>
                       <td>${escapeHtml(signal.threshold)}</td>
                     </tr>`
                   )
@@ -252,8 +256,9 @@
               </table></div>`
             : '<p class="quiet">Aucun signal rattaché à cet incident.</p>'
         }
-        <fieldset class="terms">
-          <legend>Symptômes de runbook repérés dans la fiche</legend>
+        <fieldset class="terms" aria-describedby="termsHint">
+          <legend class="legend legend--s">Symptômes de runbook repérés dans la fiche</legend>
+          <p class="hint" id="termsHint">Décochez un symptôme pour l'écarter du calcul.</p>
           <div id="termList"><p class="quiet small">Calcul en cours…</p></div>
         </fieldset>
       </section>
@@ -401,11 +406,11 @@
       list.innerHTML = '<p class="quiet small">Aucun symptôme de runbook dans le texte de la fiche.</p>';
       return;
     }
-    list.innerHTML = terms
+    list.innerHTML = `<div class="checkboxes checkboxes--inline">${terms
       .map(
-        (term) => `<label class="term"><input type="checkbox" data-term="${escapeHtml(term)}"${state.scenario.excluded.has(term) ? "" : " checked"} /><span class="code">${escapeHtml(term)}</span></label>`
+        (term, index) => `<div class="checkbox checkbox--small"><input class="checkbox-input" id="term${index}" type="checkbox" data-term="${escapeHtml(term)}"${state.scenario.excluded.has(term) ? "" : " checked"} /><label class="checkbox-label code" for="term${index}">${escapeHtml(term)}</label></div>`
       )
-      .join("");
+      .join("")}</div>`;
     if (focused) list.querySelector(`[data-term="${CSS.escape(focused)}"]`)?.focus();
   }
 
@@ -438,7 +443,7 @@
     const verdict = simulation.selected_runbook
       ? `${formatScore(simulation.match_score)} atteint le seuil de ${threshold} avec ${plural(terms.length, "symptôme commun", "symptômes communs")} : ${simulation.selected_runbook} retenu.`
       : `Sillage s'abstient (INSUFFICIENT_EVIDENCE) : ${abstentionReason(top, threshold)}.`;
-    const gate = `<span class="${simulation.gate_state === "blocked" ? "is-critical strong" : ""}">${escapeHtml(label("gate", simulation.gate_state))}</span>`;
+    const gate = `<strong class="tag${simulation.gate_state === "blocked" ? " tag--alert" : ""}">${escapeHtml(label("gate", simulation.gate_state))}</strong>`;
     const evaluationNote =
       isModified() && state.evaluation
         ? `<p class="small quiet">Les ${state.evaluation.passed} cas de référence validés portent sur les fiches d'origine ; ils ne valident pas ce scénario.</p>`
@@ -523,7 +528,7 @@
     elements.triageResult.hidden = false;
     setTriageState(`produit le ${formatDate(report.generated_at, { seconds: true })}`);
 
-    const gate = `<span class="${report.gate_state === "blocked" ? "is-critical strong" : ""}">${escapeHtml(label("gate", report.gate_state))}</span>`;
+    const gate = `<strong class="tag${report.gate_state === "blocked" ? " tag--alert" : ""}">${escapeHtml(label("gate", report.gate_state))}</strong>`;
     const runbook = provenance.runbook_id
       ? `<span class="code">${escapeHtml(provenance.runbook_id)}</span>, version ${escapeHtml(provenance.runbook_version)}`
       : "aucun runbook retenu";
@@ -598,25 +603,40 @@
       </details>
       <p class="small quiet">${escapeHtml(report.safety_note)}</p>`;
 
-    choiceButtons().forEach((button) => {
-      button.disabled = false;
-      button.classList.remove("is-chosen");
+    choiceButtons().forEach((control) => {
+      control.disabled = false;
+      if (control.type === "radio") control.checked = false;
     });
+    clearDecisionError();
     elements.decisionHint.textContent = "Votre décision est consignée au journal ; elle ne déclenche aucune action.";
   }
 
   function resetDecision() {
     elements.reviewNote.value = "";
     elements.reviewFeedback.textContent = "";
-    elements.reviewFeedback.className = "review-feedback small";
+    elements.reviewFeedback.className = "review-feedback";
     elements.decisionTime.textContent = "pas encore décidé";
     elements.decisionReceipt.textContent = "—";
     elements.decisionHint.textContent =
       "Produisez le triage avant de décider. Votre décision est consignée au journal ; elle ne déclenche aucune action.";
-    choiceButtons().forEach((button) => {
-      button.disabled = true;
-      button.classList.remove("is-chosen");
+    choiceButtons().forEach((control) => {
+      control.disabled = true;
+      if (control.type === "radio") control.checked = false;
     });
+    clearDecisionError();
+  }
+
+  function clearDecisionError() {
+    $("decisionErrors").hidden = true;
+    $("outcomeError").hidden = true;
+    $("outcomeGroup").classList.remove("form-group--error");
+  }
+
+  function showDecisionError() {
+    $("decisionErrors").hidden = false;
+    $("outcomeError").hidden = false;
+    $("outcomeGroup").classList.add("form-group--error");
+    $("decisionErrors").focus();
   }
 
   function showRecordedDecision(outcome, recordedAt, receiptId, note) {
@@ -696,7 +716,7 @@
     setTriageState("non produit");
     resetDecision();
     elements.analyze.textContent = "Produire le triage";
-    elements.analyze.classList.remove("is-secondary");
+    elements.analyze.classList.remove("button--secondary");
 
     state.original = null;
     elements.scenarioBanner.hidden = true;
@@ -732,7 +752,7 @@
       renderTriage(response.report, response.narrative);
       $("triageSection").focus();
       elements.analyze.textContent = "Produire à nouveau";
-      elements.analyze.classList.add("is-secondary");
+      elements.analyze.classList.add("button--secondary");
       await loadAudit();
       showToast("Triage prêt. Relisez le calcul et les éléments cités avant de décider.");
     } catch (error) {
@@ -744,15 +764,22 @@
     }
   }
 
-  async function submitReview(outcome, trigger) {
+  async function submitReview(event) {
+    event.preventDefault();
     const incident = selectedIncident();
     if (!incident || !state.lastReport) return;
+    const outcome = elements.decision.querySelector('input[name="outcome"]:checked')?.value;
+    if (!outcome) {
+      showDecisionError();
+      return;
+    }
+    clearDecisionError();
 
     const note = elements.reviewNote.value.trim();
     const feedback = elements.reviewFeedback;
     const buttons = choiceButtons();
     buttons.forEach((button) => (button.disabled = true));
-    feedback.className = "review-feedback small";
+    feedback.className = "review-feedback";
     feedback.textContent = "Enregistrement de la décision…";
 
     try {
@@ -764,10 +791,6 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
-      buttons.forEach((button) => {
-        button.classList.toggle("is-chosen", button === trigger);
-        button.setAttribute("aria-pressed", String(button === trigger));
       });
       showRecordedDecision(review.outcome, review.recorded_at, review.review_id, review.note);
       feedback.textContent = "Décision consignée au journal. Aucune action n'a été déclenchée.";
@@ -842,13 +865,9 @@
   }
 
   function bindEvents() {
-    document.querySelectorAll(".filter").forEach((button) => {
-      button.addEventListener("click", () => {
-        state.filter = button.dataset.filter || "all";
-        document.querySelectorAll(".filter").forEach((item) => {
-          item.classList.toggle("is-active", item === button);
-          item.setAttribute("aria-pressed", String(item === button));
-        });
+    document.querySelectorAll('input[name="sevFilter"]').forEach((radio) => {
+      radio.addEventListener("change", () => {
+        state.filter = radio.value || "all";
         renderQueue();
       });
     });
@@ -862,9 +881,12 @@
     elements.caseFacts.addEventListener("input", onScenarioInput);
     elements.resetScenario.addEventListener("click", resetScenario);
     elements.resetScenarioBanner.addEventListener("click", resetScenario);
-    elements.decision.addEventListener("click", (event) => {
-      const trigger = event.target.closest("[data-review-outcome]");
-      if (trigger && !trigger.disabled) submitReview(trigger.dataset.reviewOutcome, trigger);
+    $("decisionForm").addEventListener("submit", submitReview);
+    $("decisionErrors").addEventListener("click", (event) => {
+      if (event.target.closest("a")) {
+        event.preventDefault();
+        $("outcomeAccepted").focus();
+      }
     });
     elements.refreshAudit.addEventListener("click", loadAudit);
     elements.syncSource.addEventListener("click", syncPublicSource);
