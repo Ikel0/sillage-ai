@@ -6,7 +6,6 @@
     filter: "all",
     selectedId: null,
     lastReport: null,
-    toastTimer: null,
     contracts: {},
     original: null,
     scenario: null,
@@ -51,7 +50,7 @@
     sourceDialog: $("sourceDialog"),
     sourceReceipt: $("sourceReceipt"),
     syncSource: $("syncSource"),
-    toast: $("toast"),
+    toast: $("statusLine"),
     triageIntro: $("triageIntro"),
     triageResult: $("triageResult"),
     triageState: $("triageState"),
@@ -157,12 +156,10 @@
     return payload;
   }
 
+  // Messages d'état dans la ligne au-dessus du bouton : annoncés par aria-live, sans surimpression.
   function showToast(message, isError = false) {
-    clearTimeout(state.toastTimer);
     elements.toast.textContent = message;
     elements.toast.classList.toggle("is-error", isError);
-    elements.toast.classList.add("is-visible");
-    state.toastTimer = window.setTimeout(() => elements.toast.classList.remove("is-visible"), 4300);
   }
 
   function setTriageState(text) {
@@ -669,7 +666,7 @@
       const { items } = await api(`/api/incidents/${encodeURIComponent(id)}/reviews?limit=1`);
       const last = (items || [])[0];
       if (last && state.selectedId === id) {
-        showRecordedDecision(last.payload?.outcome, last.occurred_at, last.id, last.payload?.note_sha256);
+        showRecordedDecision(last.payload?.outcome, last.occurred_at, last.receipt, last.payload?.note_sha256);
         elements.decisionHint.textContent =
           "Une décision a déjà été enregistrée pour cet incident. Produisez un nouveau triage pour en consigner une autre.";
       }
@@ -719,7 +716,7 @@
     for (const event of events) {
       const row = body.insertRow();
       row.append(
-        cell("td", String(event.id), "num-col"),
+        cell("td", String(event.receipt), "num-col"),
         cell("td", formatDate(event.occurred_at, { seconds: true }), "nowrap nums"),
         cell("td", label("event", event.event_type)),
         cell("td", event.incident_id || "—", "code nowrap"),
@@ -745,6 +742,7 @@
   async function selectIncident(id) {
     state.selectedId = id;
     state.lastReport = null;
+    showToast("");
     renderQueue();
     elements.triageIntro.hidden = false;
     elements.triageResult.hidden = true;
@@ -828,7 +826,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      showRecordedDecision(review.outcome, review.recorded_at, review.review_id, review.note_sha256);
+      showRecordedDecision(review.outcome, review.recorded_at, review.receipt, review.note_sha256);
       feedback.textContent = "Décision consignée au journal. Aucune action n'a été déclenchée.";
       await loadAudit();
     } catch (error) {

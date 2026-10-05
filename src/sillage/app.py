@@ -216,6 +216,7 @@ async def analyze_incident(incident_id: str, request: Request) -> dict[str, obje
         raise HTTPException(status_code=503, detail=f"Registre de triage incomplet : {error}") from error
     narrative = compose_grounded_narrative(report)
     report_payload = report.as_dict()
+    session = _session(request)
     audit_event_id = record(
         "triage_generated",
         {
@@ -241,8 +242,9 @@ async def analyze_incident(incident_id: str, request: Request) -> dict[str, obje
             "automated_action": False,
         },
         incident_id=incident_id,
-        session=_session(request),
+        session=session,
     )
+    receipt = event_by_id(audit_event_id, session=session)
     return {
         "report": report_payload,
         "narrative": {
@@ -253,7 +255,7 @@ async def analyze_incident(incident_id: str, request: Request) -> dict[str, obje
         "meta": {
             "mode": "evidence-first-decision-support",
             "automated_action": False,
-            "audit_event_id": audit_event_id,
+            "receipt": receipt["receipt"] if receipt else None,
             "trace_id": report.provenance["trace_id"],
         },
     }
@@ -326,7 +328,7 @@ async def record_operator_review(
         raise HTTPException(status_code=500, detail="Le reçu de revue n'a pas pu être relu")
     return {
         "review": {
-            "review_id": receipt["id"],
+            "receipt": receipt["receipt"],
             "incident_id": incident_id,
             "outcome": review.outcome,
             "note_sha256": note_sha256,
@@ -374,6 +376,7 @@ async def sync_github_status(request: Request) -> dict[str, object]:
     """Fetch a small public operational signal without making it a dependency of triage."""
     _check_write_rate(request)
     snapshot = await asyncio.to_thread(github_status_snapshot)
+    session = _session(request)
     audit_event_id = record(
         "public_source_synced",
         {
@@ -382,6 +385,7 @@ async def sync_github_status(request: Request) -> dict[str, object]:
             "ok": snapshot["ok"],
             "indicator": snapshot["indicator"],
         },
-        session=_session(request),
+        session=session,
     )
-    return {"snapshot": snapshot, "audit_event_id": audit_event_id}
+    receipt = event_by_id(audit_event_id, session=session)
+    return {"snapshot": snapshot, "receipt": receipt["receipt"] if receipt else None}

@@ -8,7 +8,7 @@
       content="Sillage rapproche un incident data de son contrat et du runbook le plus proche, puis propose un triage qu'une personne accepte, conteste ou rejette."
     />
     <title>Sillage · fiches d'incidents data</title>
-    <link rel="stylesheet" href="/assets/app.css?v=0.7.0" />
+    <link rel="stylesheet" href="/assets/app.css?v=0.7.1" />
   </head>
   <body>
     <a class="skip-link" href="#fiche">Aller à la fiche d'incident</a>
@@ -66,9 +66,10 @@
                 <h2 id="case-title">Aucun incident sélectionné</h2>
                 <p class="quiet">Choisissez un incident dans la file pour ouvrir sa fiche.</p>
               </div>
-              <p class="case-actions" id="caseActions" hidden>
+              <div class="case-actions" id="caseActions" hidden>
+                <p class="status-line" id="statusLine" role="status" aria-live="polite"></p>
                 <button class="button" id="analyzeIncident" type="button">Produire le triage</button>
-              </p>
+              </div>
             </div>
             <div class="scenario-banner" id="scenarioBanner" hidden>
               <p><strong>Scénario modifié par vous.</strong> Rien n'est enregistré ni partagé ; le recalcul utilise le moteur de Sillage.</p>
@@ -180,7 +181,6 @@
       <pre id="sourceReceipt"></pre>
     </dialog>
 
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/assets/app.js?v=0.7.0" defer></script>
+    <script src="/assets/app.js?v=0.7.1" defer></script>
   </body>
 </html>

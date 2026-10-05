@@ -63,6 +63,24 @@ class SessionIsolationTests(unittest.TestCase):
         self.assertEqual(bob["total"], 0)
         self.assertEqual(bob_reviews["total"], 0)
 
+    def test_receipts_are_numbered_per_session_without_global_ids(self) -> None:
+        self.decide(ALICE)
+        bob_review = self.decide(BOB).json()["review"]
+        alice = self.request("GET", "/api/audit", ALICE).json()["items"]
+        bob = self.request("GET", "/api/audit", BOB).json()["items"]
+        bob_history = self.request("GET", "/api/incidents/INC-2407/reviews", BOB).json()["items"]
+
+        self.assertEqual([event["receipt"] for event in alice], [2, 1])
+        self.assertEqual([event["receipt"] for event in bob], [2, 1])
+        self.assertEqual(bob_review["receipt"], 2)
+        self.assertEqual(bob_history[0]["receipt"], 2)
+        for event in alice + bob + bob_history:
+            self.assertNotIn("id", event)
+        self.assertNotIn("review_id", bob_review)
+        triage = self.request("POST", "/api/incidents/INC-2408/analyze", BOB).json()["meta"]
+        self.assertEqual(triage["receipt"], 3)
+        self.assertNotIn("audit_event_id", triage)
+
     def test_request_without_session_reads_nothing(self) -> None:
         self.decide(ALICE)
 

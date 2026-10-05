@@ -151,20 +151,21 @@ def recent_events(
     connection = _connection()
     try:
         purge_expired(connection)
-        clauses: list[str] = ["session_key = ?"]
+        clauses: list[str] = ["a.session_key = ?"]
         parameters: list[object] = [session_key(session)]
         if incident_id:
-            clauses.append("incident_id = ?")
+            clauses.append("a.incident_id = ?")
             parameters.append(incident_id)
         if event_type:
-            clauses.append("event_type = ?")
+            clauses.append("a.event_type = ?")
             parameters.append(event_type)
         where = f"where {' and '.join(clauses)}" if clauses else ""
         parameters.append(limit)
         rows = connection.execute(
             f"""
-            select id, occurred_at, event_type, incident_id, payload, previous_hash, event_hash
-            from audit_events {where} order by id desc limit ?
+            select a.id, a.occurred_at, a.event_type, a.incident_id, a.payload, a.previous_hash, a.event_hash,
+                   (select count(*) from audit_events b where b.session_key = a.session_key and b.id <= a.id) as receipt
+            from audit_events a {where} order by a.id desc limit ?
             """,
             parameters,
         ).fetchall()
@@ -178,8 +179,9 @@ def event_by_id(event_id: int, session: str = LOCAL_SESSION) -> dict[str, Any] |
     try:
         row = connection.execute(
             """
-            select id, occurred_at, event_type, incident_id, payload, previous_hash, event_hash
-            from audit_events where id = ? and session_key = ?
+            select a.id, a.occurred_at, a.event_type, a.incident_id, a.payload, a.previous_hash, a.event_hash,
+                   (select count(*) from audit_events b where b.session_key = a.session_key and b.id <= a.id) as receipt
+            from audit_events a where a.id = ? and a.session_key = ?
             """,
             (event_id, session_key(session)),
         ).fetchone()
@@ -190,7 +192,8 @@ def event_by_id(event_id: int, session: str = LOCAL_SESSION) -> dict[str, Any] |
 
 def _row_to_event(row: sqlite3.Row) -> dict[str, Any]:
     return {
-        "id": row["id"],
+        # The global row id stays internal; visitors only see their session's receipt number.
+        "receipt": row["receipt"],
         "occurred_at": row["occurred_at"],
         "event_type": row["event_type"],
         "incident_id": row["incident_id"],

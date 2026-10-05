@@ -213,7 +213,10 @@ a:hover, .link-button:hover { color: var(--action-dark); text-decoration-thickne
 .fiche-title { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
 .fiche-head h2 { margin: 0; font-size: 2rem; line-height: 1.15; }
 .fiche-head p { margin: 4px 0 0; }
-.case-actions { flex: none; margin: 0; }
+.case-actions { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin: 0; }
+.status-line { max-width: 24rem; margin: 0; color: var(--muted); font-size: 1rem; text-align: right; }
+.status-line:empty { display: none; }
+.status-line.is-error { color: var(--alert); }
 
 .fiche-body {
   display: grid;
@@ -441,26 +444,8 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .source-dialog h2 { font-size: 1.25rem; }
 .source-dialog pre { max-height: 60vh; margin: 12px 0 0; overflow: auto; font-family: var(--mono); font-size: 0.875rem; white-space: pre-wrap; word-break: break-word; }
 
-.toast {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 30;
-  max-width: min(440px, calc(100vw - 32px));
-  padding: 12px 16px;
-  border-left: 5px solid var(--action);
-  background: var(--ink);
-  color: #fff;
-  font-size: 1rem;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 160ms ease;
-}
-.toast.is-visible { opacity: 1; }
-.toast.is-error { border-left-color: #f19d93; }
-
 @media (prefers-reduced-motion: reduce) {
-  .toast, .calc .val { transition: none; }
+  .calc .val { transition: none; }
 }
 
 /* Largeurs réduites */
@@ -481,7 +466,8 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
   .fiche-head h2 { font-size: 1.5rem; }
   h3, .queue-head h2, .method h2, .journal h2 { font-size: 1.25rem; }
   .button { width: 100%; font-size: 1.0625rem; }
-  .case-actions { width: 100%; }
+  .case-actions { width: 100%; align-items: stretch; }
+  .status-line { max-width: none; text-align: left; }
   .form-row { grid-template-columns: minmax(0, 1fr); }
   .summary-list > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .service-line { display: block; }
